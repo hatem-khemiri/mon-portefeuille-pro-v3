@@ -1,117 +1,217 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { CreditCard, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
-import { TrendingUp, TrendingDown, Wallet, CreditCard, PiggyBank } from 'lucide-react';
+import { useStatistiques } from '../../hooks/useStatistiques';
+import { StatCard } from './StatCard';
+import { DepensesChart } from './DepensesChart';
+import { AnalyseDetaillée } from './AnalyseDetaillée';
 import { GraphiqueSolde } from './GraphiqueSolde';
 import { GraphiqueRevenus } from './GraphiqueRevenus';
 import { GraphiqueDepenses } from './GraphiqueDepenses';
 import { GraphiqueEpargne } from './GraphiqueEpargne';
 
 export const DashboardContainer = () => {
-  const { comptes, transactions, chargesFixes, epargnes, dettes } = useFinance();
-
-  // Calcul du solde total
-  const soldeTotal = useMemo(() => {
-    return comptes.reduce((sum, compte) => {
-      const transactionsCompte = (transactions || []).filter(t => t.compte === compte.nom);
-      const mouvements = transactionsCompte.reduce((s, t) => s + t.montant, 0);
-      return sum + (compte.soldeInitial || 0) + mouvements;
-    }, 0);
-  }, [comptes, transactions]);
-
-  // Calcul des revenus du mois
-  const revenusMois = useMemo(() => {
-    const moisActuel = new Date().getMonth();
-    const anneeActuelle = new Date().getFullYear();
-    const debutMois = new Date(anneeActuelle, moisActuel, 1);
-    const finMois = new Date(anneeActuelle, moisActuel + 1, 0);
-    
-    return (transactions || [])
-      .filter(t => {
-        const dateT = new Date(t.date);
-        return dateT >= debutMois && dateT <= finMois && t.montant > 0;
-      })
-      .reduce((sum, t) => sum + t.montant, 0);
-  }, [transactions]);
-
-  // Calcul des dépenses du mois
-  const depensesMois = useMemo(() => {
-    const moisActuel = new Date().getMonth();
-    const anneeActuelle = new Date().getFullYear();
-    const debutMois = new Date(anneeActuelle, moisActuel, 1);
-    const finMois = new Date(anneeActuelle, moisActuel + 1, 0);
-    
-    return Math.abs((transactions || [])
-      .filter(t => {
-        const dateT = new Date(t.date);
-        return dateT >= debutMois && dateT <= finMois && t.montant < 0;
-      })
-      .reduce((sum, t) => sum + t.montant, 0));
-  }, [transactions]);
-
-  // Calcul de l'épargne totale
-  const epargneTotal = useMemo(() => {
-    return comptes
-      .filter(c => c.type === 'epargne')
-      .reduce((sum, compte) => {
-        const transactionsCompte = (transactions || []).filter(t => t.compte === compte.nom);
-        const mouvements = transactionsCompte.reduce((s, t) => s + t.montant, 0);
-        return sum + (compte.soldeInitial || 0) + mouvements;
+  const { 
+    comptes, 
+    transactions, 
+    epargnes, 
+    dettes, 
+    budgetPrevisionnel,
+    categoriesDepenses,
+    categoriesEpargnes 
+  } = useFinance();
+  
+  const [vueTableauBord, setVueTableauBord] = useState('mensuel');
+  const [compteSelectionne, setCompteSelectionne] = useState(null);
+  
+  const stats = useStatistiques(transactions, comptes, vueTableauBord, compteSelectionne);
+  
+  const totalEpargnes = useMemo(() => {
+    return epargnes.reduce((total, e) => {
+      return total + e.comptesAssocies.reduce((sum, compteNom) => {
+        const compte = comptes.find(c => c.nom === compteNom);
+        return sum + (compte ? compte.solde : 0);
       }, 0);
-  }, [comptes, transactions]);
+    }, 0);
+  }, [epargnes, comptes]);
+  
+  const totalDettes = useMemo(() => 
+    dettes.reduce((acc, d) => acc + d.restant, 0), 
+    [dettes]
+  );
+  
+  // Dépenses incluant "à venir" (pour vue prospective)
+  const depensesParCategorie = useMemo(() => {
+    const grouped = {};
+    transactions
+      .filter(t => 
+        t.montant < 0 && 
+        t.type !== 'transfert' &&
+        (t.statut === 'realisee' || t.statut === 'avenir')
+      )
+      .forEach(t => {
+        grouped[t.categorie] = (grouped[t.categorie] || 0) + Math.abs(t.montant);
+      });
+    return Object.entries(grouped).map(([name, value]) => ({ name, value }));
+  }, [transactions]);
+
+  // Dépenses réalisées uniquement (pour vue historique)
+  const depensesRealisees = useMemo(() => {
+    const grouped = {};
+    transactions
+      .filter(t => 
+        t.montant < 0 && 
+        t.type !== 'transfert' &&
+        t.statut === 'realisee'
+      )
+      .forEach(t => {
+        grouped[t.categorie] = (grouped[t.categorie] || 0) + Math.abs(t.montant);
+      });
+    return Object.entries(grouped).map(([name, value]) => ({ name, value }));
+  }, [transactions]);
 
   return (
     <div className="space-y-6">
-      {/* CARTES KPI */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Solde Total */}
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <Wallet size={32} className="opacity-80" />
-            <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-              soldeTotal >= 0 ? 'bg-green-500/30' : 'bg-red-500/30'
-            }`}>
-              {soldeTotal >= 0 ? <TrendingUp size={16} className="inline" /> : <TrendingDown size={16} className="inline" />}
+      {/* EN-TÊTE AVEC BOUTONS VUE */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          Tableau de Bord
+        </h2>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setVueTableauBord('mensuel')}
+            className={`px-6 py-3 rounded-xl transition-all font-bold shadow-lg transform hover:scale-105 ${
+              vueTableauBord === 'mensuel'
+                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300'
+            }`}
+          >
+            📅 Vue Mensuelle
+          </button>
+          <button
+            onClick={() => setVueTableauBord('annuel')}
+            className={`px-6 py-3 rounded-xl transition-all font-bold shadow-lg transform hover:scale-105 ${
+              vueTableauBord === 'annuel'
+                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300'
+            }`}
+          >
+            📊 Vue Annuelle
+          </button>
+        </div>
+      </div>
+
+      {/* STATCARDS (5 cartes) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <StatCard
+          couleur="from-blue-500 to-blue-600"
+          icon={CreditCard}
+        >
+          <p className="text-blue-100 text-sm font-medium mb-2">Compte visualisé</p>
+          <select
+            value={compteSelectionne || (stats.compteCourant?.nom || '')}
+            onChange={(e) => setCompteSelectionne(e.target.value)}
+            className="w-full px-3 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg border-2 border-white/30 focus:border-white focus:outline-none font-medium text-sm appearance-none cursor-pointer hover:bg-white/30 transition-all mb-3"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 0.5rem center',
+              backgroundSize: '1.5em 1.5em',
+              paddingRight: '2.5rem'
+            }}
+          >
+            {comptes.map(c => (
+              <option key={c.id} value={c.nom} className="text-gray-800 bg-white">
+                {c.nom} ({c.type === 'courant' ? 'Courant' : c.type === 'epargne' ? 'Épargne' : 'Espèces'})
+              </option>
+            ))}
+          </select>
+          <p className="text-3xl font-bold">{stats.soldeActuel.toFixed(2)} €</p>
+          <p className="text-blue-100 text-xs mt-1">Solde actuel</p>
+          <div className="border-t border-blue-400 pt-3 mt-3 space-y-1">
+            <div className="flex justify-between items-center text-sm">
+              <p className="text-blue-100">Solde début {vueTableauBord === 'mensuel' ? 'mois' : 'année'}</p>
+              <p className="font-semibold">{stats.soldeDebut.toFixed(2)} €</p>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <p className="text-blue-100">Prévu fin {vueTableauBord === 'mensuel' ? 'mois' : 'année'}</p>
+              <p className={`font-bold ${stats.soldePrevisionnel >= stats.soldeDebut ? 'text-white' : 'text-red-200'}`}>
+                {stats.soldePrevisionnel.toFixed(2)} €
+              </p>
             </div>
           </div>
-          <p className="text-sm opacity-80 mb-1">Solde Total</p>
-          <p className="text-3xl font-bold">{soldeTotal.toFixed(2)} €</p>
-        </div>
+        </StatCard>
+        
+        <StatCard
+          titre={`Revenus ${vueTableauBord === 'mensuel' ? 'du mois' : 'de l\'année'}`}
+          valeur={`${stats.revenusPeriode.toFixed(2)} €`}
+          couleur="from-green-500 to-emerald-600"
+          icon={TrendingUp}
+          details={stats.revenusAVenir > 0 ? [
+            { label: 'À venir', value: `${stats.revenusAVenir.toFixed(2)} €` }
+          ] : null}
+        />
+        
+        <StatCard
+          titre={`Dépenses ${vueTableauBord === 'mensuel' ? 'du mois' : 'de l\'année'}`}
+          valeur={`${stats.depensesPeriode.toFixed(2)} €`}
+          couleur="from-red-500 to-pink-600"
+          icon={TrendingDown}
+          details={stats.depensesAVenir > 0 ? [
+            { label: 'À venir', value: `${stats.depensesAVenir.toFixed(2)} €` }
+          ] : null}
+        />
+        
+        <StatCard
+          titre={`Épargnes ${vueTableauBord === 'mensuel' ? 'du mois' : 'de l\'année'}`}
+          valeur={`${stats.epargnesPeriode.toFixed(2)} €`}
+          couleur="from-purple-500 to-purple-600"
+          icon={PiggyBank}
+          details={stats.epargnesAVenir > 0 ? [
+            { label: 'À venir', value: `${stats.epargnesAVenir.toFixed(2)} €` }
+          ] : null}
+        />
+        
+        <StatCard
+          titre="Solde de la période"
+          valeur={`${(stats.revenusPeriode - stats.depensesPeriode - stats.epargnesPeriode).toFixed(2)} €`}
+          couleur="from-indigo-500 to-indigo-600"
+          icon={TrendingUp}
+          details={(stats.revenusAVenir > 0 || stats.depensesAVenir > 0 || stats.epargnesAVenir > 0) ? [
+            { label: 'À venir', value: `${stats.soldeAVenir.toFixed(2)} €` }
+          ] : null}
+        />
+      </div>
 
-        {/* Revenus du mois */}
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-xl p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <TrendingUp size={32} className="opacity-80" />
+      {/* BANDEAU INFO */}
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-2xl p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+          <div>
+            <p className="text-sm text-gray-600 mb-2">Période analysée</p>
+            <p className="text-xl font-bold text-blue-600">
+              {vueTableauBord === 'mensuel' 
+                ? `${stats.dateDebut?.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })} - ${stats.dateFinPrevue?.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })}`
+                : `01 janvier - 31 décembre ${new Date().getFullYear()}`
+              }
+            </p>
           </div>
-          <p className="text-sm opacity-80 mb-1">Revenus du Mois</p>
-          <p className="text-3xl font-bold">{revenusMois.toFixed(2)} €</p>
-        </div>
-
-        {/* Dépenses du mois */}
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-xl p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <CreditCard size={32} className="opacity-80" />
+          <div>
+            <p className="text-sm text-gray-600 mb-2">Épargnes totales</p>
+            <p className="text-xl font-bold text-green-600">{totalEpargnes.toFixed(2)} €</p>
           </div>
-          <p className="text-sm opacity-80 mb-1">Dépenses du Mois</p>
-          <p className="text-3xl font-bold">{depensesMois.toFixed(2)} €</p>
-        </div>
-
-        {/* Épargne */}
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-xl p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <PiggyBank size={32} className="opacity-80" />
+          <div>
+            <p className="text-sm text-gray-600 mb-2">Dettes restantes</p>
+            <p className="text-xl font-bold text-red-600">{totalDettes.toFixed(2)} €</p>
           </div>
-          <p className="text-sm opacity-80 mb-1">Épargne Totale</p>
-          <p className="text-3xl font-bold">{epargneTotal.toFixed(2)} €</p>
         </div>
       </div>
 
-      {/* TITRE SECTION GRAPHIQUES */}
+      {/* ✅ NOUVEAUTÉ : 4 GRAPHIQUES PRÉVISIONNEL VS RÉEL */}
       <div className="pt-4">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">📊 Prévisionnel vs Réel</h2>
-        <p className="text-gray-600">Comparaison de vos budgets prévisionnels avec la réalité</p>
+        <p className="text-gray-600 mb-4">Comparaison de vos budgets prévisionnels avec la réalité</p>
       </div>
 
-      {/* GRAPHIQUES - GRID 2x2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <GraphiqueSolde />
         <GraphiqueRevenus />
@@ -119,86 +219,13 @@ export const DashboardContainer = () => {
         <GraphiqueEpargne />
       </div>
 
-      {/* INFORMATIONS COMPLÉMENTAIRES */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Comptes */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">🏦 Mes Comptes</h3>
-          {comptes.length === 0 ? (
-            <p className="text-gray-500 text-sm">Aucun compte configuré</p>
-          ) : (
-            <div className="space-y-3">
-              {comptes.slice(0, 3).map(compte => {
-                const transactionsCompte = (transactions || []).filter(t => t.compte === compte.nom);
-                const mouvements = transactionsCompte.reduce((s, t) => s + t.montant, 0);
-                const solde = (compte.soldeInitial || 0) + mouvements;
-                
-                return (
-                  <div key={compte.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                    <div>
-                      <p className="font-medium text-gray-800">{compte.nom}</p>
-                      <p className="text-xs text-gray-500">{compte.type}</p>
-                    </div>
-                    <p className={`font-bold ${solde >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {solde.toFixed(2)} €
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Charges fixes */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">📅 Prochaines Charges</h3>
-          {chargesFixes.length === 0 ? (
-            <p className="text-gray-500 text-sm">Aucune charge configurée</p>
-          ) : (
-            <div className="space-y-3">
-              {chargesFixes.slice(0, 3).map(charge => (
-                <div key={charge.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                  <div>
-                    <p className="font-medium text-gray-800">{charge.nom}</p>
-                    <p className="text-xs text-gray-500">{charge.frequence}</p>
-                  </div>
-                  <p className="font-bold text-red-600">
-                    {Math.abs(charge.montant).toFixed(2)} €
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Objectifs d'épargne */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">🎯 Objectifs d'Épargne</h3>
-          {epargnes.length === 0 ? (
-            <p className="text-gray-500 text-sm">Aucun objectif configuré</p>
-          ) : (
-            <div className="space-y-3">
-              {epargnes.slice(0, 3).map(epargne => {
-                const progress = (epargne.montantActuel / epargne.objectif) * 100;
-                
-                return (
-                  <div key={epargne.id} className="p-3 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium text-gray-800">{epargne.nom}</p>
-                      <p className="text-xs text-gray-500">{progress.toFixed(0)}%</p>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full transition-all"
-                        style={{ width: `${Math.min(progress, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {/* GRAPHIQUES EXISTANTS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <DepensesChart 
+          depensesParCategorie={depensesParCategorie}
+          depensesRealisees={depensesRealisees}
+        />
+        <AnalyseDetaillée stats={stats} budgetPrevisionnel={budgetPrevisionnel} />
       </div>
     </div>
   );
