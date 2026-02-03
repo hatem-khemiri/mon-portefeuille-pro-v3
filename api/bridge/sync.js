@@ -18,7 +18,7 @@ function getHeaders(accessToken = null) {
   return headers;
 }
 
-// ✅ Catégorisation intelligente (inchangée)
+// ✅ Catégorisation intelligente
 function categorizeTransaction(transaction) {
   const amount = parseFloat(transaction.amount);
   const description = (transaction.clean_description || transaction.provider_description || '').toLowerCase();
@@ -36,7 +36,6 @@ function categorizeTransaction(transaction) {
   
   // DÉPENSES (montant négatif)
   if (amount < 0) {
-    // Alimentation
     if (description.includes('carrefour') || description.includes('auchan') || 
         description.includes('leclerc') || description.includes('lidl') ||
         description.includes('marjane') || description.includes('supermarché') ||
@@ -50,34 +49,29 @@ function categorizeTransaction(transaction) {
       return 'Restaurants';
     }
     
-    // Transport
     if (description.includes('essence') || description.includes('total') ||
         description.includes('shell') || description.includes('carburant') ||
         description.includes('station') || description.includes('gas')) {
       return 'Transport';
     }
     
-    // Loisirs
     if (description.includes('cinema') || description.includes('spotify') ||
         description.includes('netflix') || description.includes('youtube') ||
         description.includes('jeux') || description.includes('game')) {
       return 'Loisirs';
     }
     
-    // Santé
     if (description.includes('pharmacie') || description.includes('medecin') ||
         description.includes('docteur') || description.includes('hopital')) {
       return 'Santé';
     }
     
-    // Logement
     if (description.includes('loyer') || description.includes('edf') ||
         description.includes('eau') || description.includes('gaz') ||
         description.includes('electricite')) {
       return 'Logement';
     }
     
-    // Abonnements
     if (description.includes('prlv') || description.includes('prelevement') ||
         description.includes('abonnement') || description.includes('bouygues') ||
         description.includes('orange') || description.includes('sfr') ||
@@ -86,7 +80,6 @@ function categorizeTransaction(transaction) {
       return 'Abonnements';
     }
     
-    // Retraits
     if (description.includes('retrait') || description.includes('dab') ||
         description.includes('atm') || description.includes('especes')) {
       return 'Retraits';
@@ -100,13 +93,13 @@ function categorizeTransaction(transaction) {
 
 export default async function handler(req, res) {
   try {
-    const { itemId, userId, bankName, since } = req.body; // 🆕 Ajout de "since"
+    const { itemId, userId, bankName, since } = req.body;
 
     if (!itemId || !userId) {
       return res.status(400).json({ error: 'itemId et userId requis' });
     }
 
-    // 🆕 Calculer la date "since" (défaut : 3 mois)
+    // Calculer la date "since" (défaut : 3 mois en arrière)
     const sinceDate = since || (() => {
       const d = new Date();
       d.setMonth(d.getMonth() - 3);
@@ -141,20 +134,15 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log("📊 Récupération transactions...");
+    console.log("📊 Récupération transactions depuis Bridge...");
 
-    // 🆕 Ajouter le paramètre "since" et "until" pour récupérer historique + futures
-    const untilDate = new Date();
-    untilDate.setMonth(untilDate.getMonth() + 3); // +3 mois dans le futur
-    
     const transactionsResponse = await axios.get(
       `${BRIDGE_API_URL}/v3/aggregation/transactions`,
       { 
         headers: getHeaders(accessToken),
         params: { 
           limit: 500,
-          since: sinceDate,
-          until: untilDate.toISOString().split('T')[0]
+          since: sinceDate
         }
       }
     );
@@ -170,40 +158,71 @@ export default async function handler(req, res) {
       });
     }
 
-    // ✅ CORRECTION CRITIQUE : Garder les VRAIES dates + calculer le bon statut
     const aujourdHui = new Date();
     aujourdHui.setHours(0, 0, 0, 0);
 
-    const allTransactions = transactions.map(t => {
-      // ✅ Garder la date RÉELLE de Bridge (pas de décalage)
+    // ÉTAPE 1 : Créer les transactions RÉELLES (historique)
+    const realTransactions = transactions.map(t => {
       const transactionDate = new Date(t.date);
       transactionDate.setHours(0, 0, 0, 0);
       
-      // ✅ Déterminer le statut en fonction de la date réelle
       const statut = transactionDate <= aujourdHui ? 'realisee' : 'a_venir';
+      const amount = parseFloat(t.amount);
 
       return {
         id: `bridge_${t.id}`,
-        date: t.date, // ✅ Date RÉELLE (pas modifiée)
+        date: t.date,
         description: t.clean_description || t.provider_description || 'Transaction',
-        montant: Math.abs(parseFloat(t.amount)), // ✅ Valeur absolue
+        montant: amount, // ✅ GARDE LE SIGNE (négatif pour dépenses)
         categorie: categorizeTransaction(t),
         compte: bankName || 'Ma Banque',
-        statut: statut, // ✅ Basé sur la date réelle
-        type: parseFloat(t.amount) < 0 ? 'depense' : 'revenu', // ✅ Type correct
+        statut: statut,
+        type: amount < 0 ? 'depense' : 'revenu',
         bridgeId: t.id,
         bridgeAccountId: t.account_id,
-        isSynced: true
+        isSynced: true,
+        isProjection: false
       };
     });
 
-    // 🆕 Statistiques
+    // ÉTAPE 2 : Créer les PROJECTIONS futures
+    const passedTransactions = realTransactions.filter(t => t.statut === 'realisee');
+    
+    const dates = passedTransactions.map(t => new Date(t.date));
+    const oldestDate = new Date(Math.min(...dates));
+    const newestPastDate = new Date(Math.max(...dates.filter(d => d <= aujourdHui)));
+    
+    const historyDurationDays = Math.ceil((newestPastDate - oldestDate) / (1000 * 60 * 60 * 24));
+    
+    console.log(`📊 Historique : ${historyDurationDays} jours (${oldestDate.toISOString().split('T')[0]} → ${newestPastDate.toISOString().split('T')[0]})`);
+
+    const projectedTransactions = passedTransactions.map(t => {
+      const originalDate = new Date(t.date);
+      const futureDate = new Date(originalDate);
+      futureDate.setDate(futureDate.getDate() + historyDurationDays);
+
+      return {
+        ...t,
+        id: `projection_${t.bridgeId}`,
+        date: futureDate.toISOString().split('T')[0],
+        statut: 'a_venir',
+        isProjection: true,
+        projectedFrom: t.date
+      };
+    });
+
+    // ÉTAPE 3 : Fusionner réelles + projections
+    const allTransactions = [...realTransactions, ...projectedTransactions];
+
+    // Statistiques finales
     const nbRealisees = allTransactions.filter(t => t.statut === 'realisee').length;
     const nbFutures = allTransactions.filter(t => t.statut === 'a_venir').length;
+    const nbProjections = projectedTransactions.length;
 
-    console.log(`✅ ${allTransactions.length} transactions récupérées`);
-    console.log(`📊 ${nbRealisees} réalisées | ${nbFutures} à venir`);
-    console.log(`📅 Période : ${allTransactions[allTransactions.length - 1].date} → ${allTransactions[0].date}`);
+    console.log(`✅ ${allTransactions.length} transactions au total`);
+    console.log(`   📍 ${nbRealisees} réalisées (historique réel)`);
+    console.log(`   🔮 ${nbFutures} à venir (dont ${nbProjections} projections)`);
+    console.log(`   📊 Ratio : ${Math.round(nbRealisees/allTransactions.length*100)}% réalisées / ${Math.round(nbFutures/allTransactions.length*100)}% futures`);
 
     return res.status(200).json({
       success: true,
@@ -213,7 +232,12 @@ export default async function handler(req, res) {
       summary: {
         total: allTransactions.length,
         realisees: nbRealisees,
-        aVenir: nbFutures
+        aVenir: nbFutures,
+        projections: nbProjections,
+        ratio: {
+          realisees: Math.round(nbRealisees/allTransactions.length*100),
+          futures: Math.round(nbFutures/allTransactions.length*100)
+        }
       }
     });
 
