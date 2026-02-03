@@ -408,7 +408,7 @@ function AppContent() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {activeTab === 'dashboard' && <DashboardContainer />}
         {activeTab === 'transactions' && <TransactionsContainer />}
-        {activeTab === 'previsionnel' && <PrevisionnelContainer />}
+        {activeTab === 'previsionnel' && <PrevisionnelContainer setActiveTab={setActiveTab} />}
         {activeTab === 'epargnes' && <EpargnesContainer />}
         {activeTab === 'dettes' && <DettesContainer />}
         {activeTab === 'parametrage' && (
