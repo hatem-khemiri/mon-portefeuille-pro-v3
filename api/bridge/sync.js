@@ -18,7 +18,7 @@ function getHeaders(accessToken = null) {
   return headers;
 }
 
-// ✅ NOUVELLE FONCTION : Catégorisation intelligente
+// ✅ Catégorisation intelligente (inchangée)
 function categorizeTransaction(transaction) {
   const amount = parseFloat(transaction.amount);
   const description = (transaction.clean_description || transaction.provider_description || '').toLowerCase();
@@ -100,11 +100,20 @@ function categorizeTransaction(transaction) {
 
 export default async function handler(req, res) {
   try {
-    const { itemId, userId, bankName } = req.body; // ✅ Récupérer bankName
+    const { itemId, userId, bankName, since } = req.body; // 🆕 Ajout de "since"
 
     if (!itemId || !userId) {
       return res.status(400).json({ error: 'itemId et userId requis' });
     }
+
+    // 🆕 Calculer la date "since" (défaut : 3 mois)
+    const sinceDate = since || (() => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 3);
+      return d.toISOString().split('T')[0];
+    })();
+
+    console.log(`📅 Récupération transactions depuis ${sinceDate}...`);
 
     let accessToken;
     try {
@@ -134,11 +143,19 @@ export default async function handler(req, res) {
 
     console.log("📊 Récupération transactions...");
 
+    // 🆕 Ajouter le paramètre "since" et "until" pour récupérer historique + futures
+    const untilDate = new Date();
+    untilDate.setMonth(untilDate.getMonth() + 3); // +3 mois dans le futur
+    
     const transactionsResponse = await axios.get(
       `${BRIDGE_API_URL}/v3/aggregation/transactions`,
       { 
         headers: getHeaders(accessToken),
-        params: { limit: 500 }
+        params: { 
+          limit: 500,
+          since: sinceDate,
+          until: untilDate.toISOString().split('T')[0]
+        }
       }
     );
 
@@ -153,44 +170,51 @@ export default async function handler(req, res) {
       });
     }
 
-    // Trouver la transaction la PLUS ANCIENNE
-    const oldestDate = new Date(Math.min(...transactions.map(t => new Date(t.date))));
-    
-    // Calculer le décalage pour que la plus ancienne commence AUJOURD'HUI
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const daysDiff = Math.ceil((today - oldestDate) / (1000 * 60 * 60 * 24));
-
-    console.log(`📅 Décalage de ${daysDiff} jours (ancienne: ${oldestDate.toISOString().split('T')[0]} → nouvelle: ${today.toISOString().split('T')[0]})`);
+    // ✅ CORRECTION CRITIQUE : Garder les VRAIES dates + calculer le bon statut
+    const aujourdHui = new Date();
+    aujourdHui.setHours(0, 0, 0, 0);
 
     const allTransactions = transactions.map(t => {
-      const originalDate = new Date(t.date);
-      const futureDate = new Date(originalDate);
-      futureDate.setDate(futureDate.getDate() + daysDiff);
+      // ✅ Garder la date RÉELLE de Bridge (pas de décalage)
+      const transactionDate = new Date(t.date);
+      transactionDate.setHours(0, 0, 0, 0);
+      
+      // ✅ Déterminer le statut en fonction de la date réelle
+      const statut = transactionDate <= aujourdHui ? 'realisee' : 'a_venir';
 
       return {
         id: `bridge_${t.id}`,
-        date: futureDate.toISOString().split('T')[0],
+        date: t.date, // ✅ Date RÉELLE (pas modifiée)
         description: t.clean_description || t.provider_description || 'Transaction',
-        montant: parseFloat(t.amount),
+        montant: Math.abs(parseFloat(t.amount)), // ✅ Valeur absolue
         categorie: categorizeTransaction(t),
-        compte: bankName || 'Ma Banque', // ✅ Utiliser le nom passé en paramètre
-        statut: 'avenir',
-        type: 'bancaire',
+        compte: bankName || 'Ma Banque',
+        statut: statut, // ✅ Basé sur la date réelle
+        type: parseFloat(t.amount) < 0 ? 'depense' : 'revenu', // ✅ Type correct
         bridgeId: t.id,
         bridgeAccountId: t.account_id,
         isSynced: true
       };
     });
 
-    console.log(`✅ ${allTransactions.length} transactions (du ${allTransactions[allTransactions.length - 1].date} au ${allTransactions[0].date})`);
+    // 🆕 Statistiques
+    const nbRealisees = allTransactions.filter(t => t.statut === 'realisee').length;
+    const nbFutures = allTransactions.filter(t => t.statut === 'a_venir').length;
+
+    console.log(`✅ ${allTransactions.length} transactions récupérées`);
+    console.log(`📊 ${nbRealisees} réalisées | ${nbFutures} à venir`);
+    console.log(`📅 Période : ${allTransactions[allTransactions.length - 1].date} → ${allTransactions[0].date}`);
 
     return res.status(200).json({
       success: true,
       transactions: allTransactions,
       transactionsCount: allTransactions.length,
-      syncDate: new Date().toISOString()
+      syncDate: new Date().toISOString(),
+      summary: {
+        total: allTransactions.length,
+        realisees: nbRealisees,
+        aVenir: nbFutures
+      }
     });
 
   } catch (error) {
