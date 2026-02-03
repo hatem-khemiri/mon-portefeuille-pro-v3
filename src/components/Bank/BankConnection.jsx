@@ -12,7 +12,6 @@ export const BankConnection = () => {
   const [lastSync, setLastSync] = useState(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   
-  // ✅ NOUVEAU : État pour la modal de mapping
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [pendingSyncData, setPendingSyncData] = useState(null);
 
@@ -130,7 +129,7 @@ export const BankConnection = () => {
         body: JSON.stringify({ 
           itemId: latestItem.id, 
           userId: currentUser,
-          bankName: 'TEMP' // ✅ On mettra le bon nom après le mapping
+          bankName: 'TEMP'
         })
       });
 
@@ -154,7 +153,6 @@ export const BankConnection = () => {
         const newTrans = syncData.transactions.filter(t => !bridgeIds.has(t.bridgeId));
 
         if (newTrans.length > 0) {
-          // ✅ TOUJOURS ouvrir la modal (même sans comptes existants)
           setPendingSyncData({
             transactions: newTrans,
             bankName: bankName
@@ -176,21 +174,18 @@ export const BankConnection = () => {
     }
   };
 
-  // ✅ NOUVEAU : Callback quand l'utilisateur confirme le mapping
   const handleMappingConfirm = (mapping) => {
     const { transactions: newTrans, bankName } = pendingSyncData;
     
     let targetCompteName;
     
     if (mapping.type === 'existing') {
-      // Fusionner avec un compte existant
       targetCompteName = mapping.compte.nom;
     } else {
-      // Créer un nouveau compte
       const newCompte = {
         id: Date.now(),
         nom: mapping.compteName,
-        type: mapping.compteType || 'courant', // ✅ Utiliser le type choisi
+        type: mapping.compteType || 'courant',
         solde: 0,
         soldeInitial: 0,
         isSynced: true
@@ -200,11 +195,22 @@ export const BankConnection = () => {
       console.log(`✅ Compte "${mapping.compteName}" (${mapping.compteType}) créé`);
     }
     
-    // Assigner les transactions au compte choisi
-    const updatedTransactions = newTrans.map(t => ({
-      ...t,
-      compte: targetCompteName
-    }));
+    // ✅ CORRECTION : Assigner le statut en fonction de la date
+    const aujourdHui = new Date();
+    aujourdHui.setHours(0, 0, 0, 0);
+    
+    const updatedTransactions = newTrans.map(t => {
+      const dateTransaction = new Date(t.date);
+      dateTransaction.setHours(0, 0, 0, 0);
+      
+      const statut = dateTransaction <= aujourdHui ? 'realisee' : 'a_venir';
+      
+      return {
+        ...t,
+        compte: targetCompteName,
+        statut: statut
+      };
+    });
     
     const existing = transactions || [];
     const finalTransactions = [...existing, ...updatedTransactions];
@@ -214,7 +220,10 @@ export const BankConnection = () => {
     setShowMappingModal(false);
     setPendingSyncData(null);
     
-    alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) vers "${targetCompteName}" !`);
+    const realisees = updatedTransactions.filter(t => t.statut === 'realisee').length;
+    const aVenir = updatedTransactions.filter(t => t.statut === 'a_venir').length;
+    
+    alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) vers "${targetCompteName}" !\n\n${realisees} réalisée(s) | ${aVenir} à venir`);
   };
 
   const handleDisconnect = async () => {
@@ -315,7 +324,6 @@ export const BankConnection = () => {
         </div>
       </div>
 
-      {/* ✅ NOUVEAU : Modal de mapping */}
       <AccountMappingModal
         isOpen={showMappingModal}
         onClose={() => {
