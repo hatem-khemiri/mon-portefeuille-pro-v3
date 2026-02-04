@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { ComptesTab } from './ComptesTab';
 import { CategoriesTab } from './CategoriesTab';
-import { ChargesTab } from './ChargesTab';
+import { ChargesRecurrentesUnified } from './ChargesRecurrentesUnified'; // 🆕 IMPORT UNIFIÉ
 import { MemosTab } from './MemosTab';
 import { ProfilTab } from './ProfilTab';
 import { BankConnection } from '../Bank/BankConnection';
-import { TransactionsRecurrentes } from './TransactionsRecurrentes'; // 🆕 AJOUT
 
 export const ParametrageContainer = ({ onExport, onLogout }) => {
   const [activeSection, setActiveSection] = useState('comptes');
@@ -14,8 +13,7 @@ export const ParametrageContainer = ({ onExport, onLogout }) => {
     { id: 'comptes', label: '💳 Comptes Bancaires' },
     { id: 'bank', label: '🏦 Synchronisation Bancaire' },
     { id: 'categories', label: '🏷️ Catégories' },
-    { id: 'charges', label: '📋 Charges Fixes' }, // ✅ RENOMMÉ
-    { id: 'recurrentes', label: '🔁 Récurrences Détectées' }, // 🆕 NOUVEAU
+    { id: 'recurrentes', label: '🔄 Charges & Revenus Récurrents' }, // 🆕 UNIFIÉ
     { id: 'memos', label: '📝 Mémos Budgétaires' },
     { id: 'profil', label: '👤 Mon Profil' }
   ];
@@ -28,10 +26,8 @@ export const ParametrageContainer = ({ onExport, onLogout }) => {
         return <BankConnection />;
       case 'categories':
         return <CategoriesTab />;
-      case 'charges':
-        return <ChargesTab />;
-      case 'recurrentes': // 🆕 NOUVEAU
-        return <TransactionsRecurrentes />;
+      case 'recurrentes': // 🆕 UNIFIÉ (remplace 'charges')
+        return <ChargesRecurrentesUnified />;
       case 'memos':
         return <MemosTab />;
       case 'profil':
