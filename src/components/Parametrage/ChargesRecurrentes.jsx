@@ -4,7 +4,7 @@ import { usePrevisionnel } from '../../hooks/usePrevisionnel';
 import { useChargesFixes } from '../../hooks/useChargesFixes';
 import { Plus, Edit2, Trash2, X, Check, Calendar, Euro, Tag, Building2 } from 'lucide-react';
 
-export const ChargesRecurrentesUnified = () => {
+export const ChargesRecurrentes = () => {
   const { chargesFixes, comptes } = useFinance();
   const { recurrencesNouvellesUniques } = usePrevisionnel();
   const { addChargeFixe, updateChargeFixe, deleteChargeFixe } = useChargesFixes();

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ComptesTab } from './ComptesTab';
 import { CategoriesTab } from './CategoriesTab';
-import { ChargesRecurrentesUnified } from './ChargesRecurrentesUnified'; // 🆕 IMPORT UNIFIÉ
+import { ChargesRecurrentes } from './ChargesRecurrentes'; // 🆕 IMPORT UNIFIÉ
 import { MemosTab } from './MemosTab';
 import { ProfilTab } from './ProfilTab';
 import { BankConnection } from '../Bank/BankConnection';
@@ -27,7 +27,7 @@ export const ParametrageContainer = ({ onExport, onLogout }) => {
       case 'categories':
         return <CategoriesTab />;
       case 'recurrentes': // 🆕 UNIFIÉ (remplace 'charges')
-        return <ChargesRecurrentesUnified />;
+        return <ChargesRecurrentes />;
       case 'memos':
         return <MemosTab />;
       case 'profil':
