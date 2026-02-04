@@ -2,21 +2,18 @@ import { useState, useEffect } from 'react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { usePrevisionnelCalculations } from '../../hooks/usePrevisionnelCalculations';
 import { usePrevisionnel } from '../../hooks/usePrevisionnel';
-import { useChargesFixes } from '../../hooks/useChargesFixes';
-import { RefreshCw, Save, Calculator, Edit2, Plus, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, Save, Calculator, Edit2, Bell } from 'lucide-react';
 
 export const PrevisionnelContainer = ({ setActiveTab }) => {
   const {
     budgetPrevisionnel,
     setBudgetPrevisionnel,
     modeCalculPrevisionnel,
-    setModeCalculPrevisionnel,
-    chargesFixes
+    setModeCalculPrevisionnel
   } = useFinance();
 
   const { calculerPrevisionnelAutomatique } = usePrevisionnelCalculations();
-  const { recurrencesNouvellesUniques, nombreSuggestions } = usePrevisionnel();
-  const { addChargeFixe } = useChargesFixes();
+  const { nombreSuggestions } = usePrevisionnel();
 
   // ── État local du tableau éditable ──
   const [budgetLocal, setBudgetLocal] = useState({
@@ -28,13 +25,6 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  // ── Récurrences : acceptées / dismissées (persiste pendant la session) ──
-  const [acceptedIds, setAcceptedIds]   = useState([]);
-  const [dismissedIds, setDismissedIds] = useState([]);
-
-  // ── Panneau suggestions ouvert/fermé ──
-  const [suggestionsPanelOpen, setSuggestionsPanelOpen] = useState(nombreSuggestions > 0);
-
   // Sync budgetLocal depuis le contexte
   useEffect(() => {
     if (budgetPrevisionnel) {
@@ -42,53 +32,9 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
     }
   }, [budgetPrevisionnel]);
 
-  // Ouvrir automatiquement si de nouvelles suggestions apparaissent
-  useEffect(() => {
-    if (nombreSuggestions > 0) setSuggestionsPanelOpen(true);
-  }, [nombreSuggestions]);
-
-  // ── Récurrences visibles (pas encore dismissées) ──
-  const suggestionVisibles = recurrencesNouvellesUniques.filter(
-    r => !dismissedIds.includes(r.id) && !acceptedIds.includes(r.id)
-  );
-  const suggestionAcceptees = recurrencesNouvellesUniques.filter(
-    r => acceptedIds.includes(r.id)
-  );
-
-  // ── Accepter une suggestion ──
-  const accepterSuggestion = (rec) => {
-    setAcceptedIds(prev => [...prev, rec.id]);
-  };
-
-  // ── Dismisser une suggestion ──
-  const dismisserSuggestion = (rec) => {
-    setDismissedIds(prev => [...prev, rec.id]);
-  };
-
-  // ── Ajouter définitivement comme charge fixe ──
-  const ajouterCommeChargeFixe = (rec) => {
-    if (!addChargeFixe) return;
-    const negMontant = rec.categorie !== 'Salaire' &&
-                       rec.categorie !== 'Prime' &&
-                       rec.categorie !== 'Freelance' &&
-                       rec.categorie !== 'Investissements' &&
-                       rec.categorie !== 'Autres revenus';
-
-    addChargeFixe({
-      nom: rec.nom,
-      montant: negMontant ? rec.montant : rec.montant,
-      categorie: rec.categorie,
-      frequence: rec.frequence || 'mensuelle',
-      jourMois: 1,
-      compte: rec.compte
-    });
-    setAcceptedIds(prev => prev.filter(id => id !== rec.id));
-  };
-
-  // ── Calcul automatique (inclut les récurrences acceptées) ──
+  // ── Calcul automatique ──
   const calculerBudgetAutomatique = () => {
-    const recAcceptees = recurrencesNouvellesUniques.filter(r => acceptedIds.includes(r.id));
-    calculerPrevisionnelAutomatique(recAcceptees);
+    calculerPrevisionnelAutomatique([]);
     setIsEditing(false);
   };
 
@@ -117,6 +63,41 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
 
   return (
     <div className="space-y-6">
+      {/* ═══ NOTIFICATION RÉCURRENCES (si détectées) ═══ */}
+      {nombreSuggestions > 0 && (
+        <div 
+          onClick={() => setActiveTab && setActiveTab('parametres')}
+          className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-amber-400 rounded-full p-2 group-hover:scale-110 transition-transform">
+                <Bell size={20} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-amber-900">
+                  {nombreSuggestions} nouvelle{nombreSuggestions > 1 ? 's' : ''} récurrence{nombreSuggestions > 1 ? 's' : ''} détectée{nombreSuggestions > 1 ? 's' : ''}
+                </h3>
+                <p className="text-sm text-amber-700">
+                  Des dépenses régulières ont été identifiées dans votre historique bancaire
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full">
+                {nombreSuggestions}
+              </span>
+              <button className="px-4 py-2 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-all">
+                Gérer →
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-amber-600 bg-amber-100 rounded-lg p-2">
+            💡 Cliquez ici pour valider, ignorer ou ajouter ces récurrences dans <strong>Paramétrage → Transactions récurrentes</strong>
+          </div>
+        </div>
+      )}
+
       {/* ═══ EN-TÊTE ═══ */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
         <div className="flex items-center justify-between mb-4">
@@ -165,8 +146,7 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
           {modeCalculPrevisionnel === 'automatique' && (
             <div className="bg-white rounded-lg p-4 mb-4">
               <p className="text-sm text-gray-600 mb-3">
-                Le budget est calculé automatiquement à partir de vos charges fixes configurées
-                {suggestionAcceptees.length > 0 && ` + ${suggestionAcceptees.length} récurrence(s) acceptée(s)`}.
+                Le budget est calculé automatiquement à partir de vos charges fixes configurées.
               </p>
               <button
                 onClick={calculerBudgetAutomatique}
@@ -194,115 +174,6 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
           )}
         </div>
       </div>
-
-      {/* ═══ PANNEAU SUGGESTIONS DE RÉCURRENCES ═══ */}
-      {recurrencesNouvellesUniques.length > 0 && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-lg overflow-hidden">
-          <button
-            onClick={() => setSuggestionsPanelOpen(p => !p)}
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-amber-100 transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-xl">🔍</span>
-              <div className="text-left">
-                <h3 className="font-bold text-amber-900">Récurrences détectées</h3>
-                <p className="text-sm text-amber-700">
-                  {suggestionVisibles.length} suggestion(s) en attente
-                  {suggestionAcceptees.length > 0 && ` · ${suggestionAcceptees.length} acceptée(s)`}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {suggestionVisibles.length > 0 && (
-                <span className="bg-amber-400 text-amber-900 text-xs font-bold px-2 py-1 rounded-full">
-                  {suggestionVisibles.length}
-                </span>
-              )}
-              {suggestionsPanelOpen ? <ChevronUp size={20} className="text-amber-700" /> : <ChevronDown size={20} className="text-amber-700" />}
-            </div>
-          </button>
-
-          {suggestionsPanelOpen && (
-            <div className="px-6 pb-6 pt-2 space-y-3">
-              <p className="text-xs text-amber-600 italic">
-                Ces dépenses récurrentes ont été détectées dans vos transactions synchronisées.
-                Vous pouvez les accepter pour les inclure dans le calcul automatique, ou les dismisser.
-              </p>
-
-              {suggestionVisibles.map(rec => (
-                <div key={rec.id} className="bg-white border border-amber-200 rounded-xl p-4 flex items-center justify-between gap-3 shadow-sm">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 truncate">{rec.nom}</p>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                        💰 {rec.montant.toFixed(2)} €
-                      </span>
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                        📅 {rec.frequence}
-                      </span>
-                      <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-                        🏷️ {rec.categorie}
-                      </span>
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                        🔁 {rec.nombreOccurrences} mois détectés
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => accepterSuggestion(rec)}
-                      className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-all flex items-center gap-1"
-                    >
-                      ✓ Accepter
-                    </button>
-                    <button
-                      onClick={() => dismisserSuggestion(rec)}
-                      className="px-3 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-300 transition-all flex items-center gap-1"
-                    >
-                      <X size={14} /> Ignorer
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {suggestionAcceptees.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-xs font-semibold text-green-700 mb-2">✅ Acceptées (incluses dans le calcul automatique) :</p>
-                  <div className="space-y-2">
-                    {suggestionAcceptees.map(rec => (
-                      <div key={rec.id} className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-green-600">✓</span>
-                          <span className="text-sm font-medium text-green-800">{rec.nom}</span>
-                          <span className="text-xs text-green-600">{rec.montant.toFixed(2)} € / {rec.frequence}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => ajouterCommeChargeFixe(rec)}
-                            className="px-2 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-all flex items-center gap-1"
-                          >
-                            <Plus size={12} /> Ajouter comme charge fixe
-                          </button>
-                          <button
-                            onClick={() => setAcceptedIds(prev => prev.filter(id => id !== rec.id))}
-                            className="text-gray-400 hover:text-gray-600 transition-all"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {suggestionVisibles.length === 0 && suggestionAcceptees.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-2 italic">Toutes les suggestions ont été traitées.</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ═══ TABLEAU DES BUDGETS ═══ */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 overflow-x-auto">
@@ -415,7 +286,7 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
         <h3 className="font-bold text-blue-900 mb-3">💡 Comment ça marche ?</h3>
         <ul className="space-y-2 text-sm text-blue-800">
           <li>• <strong>Mode Automatique :</strong> Le budget est calculé à partir de vos charges fixes configurées</li>
-          <li>• <strong>Récurrences détectées :</strong> Les transactions synchronisées sont analysées pour identifier des dépenses régulières non configurées</li>
+          <li>• <strong>Récurrences détectées :</strong> Gérez-les dans <strong>Paramétrage → Transactions récurrentes</strong></li>
           <li>• <strong>Mode Manuel :</strong> Vous pouvez modifier manuellement chaque montant mois par mois</li>
           <li>• Les graphiques de comparaison Prévisionnel vs Réel sont disponibles dans l'onglet <strong>Tableau de Bord</strong></li>
         </ul>
