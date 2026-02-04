@@ -1,39 +1,35 @@
 import { useState } from 'react';
-import { ComptesTab } from './ComptesTab';
 import { CategoriesTab } from './CategoriesTab';
-import { ChargesRecurrentes } from './ChargesRecurrentes'; // 🆕 IMPORT UNIFIÉ
-import { MemosTab } from './MemosTab';
+import { ChargesRecurrentes } from './ChargesRecurrentes';
+import { MemosBudgetaires } from './MemosBudgetaires';
+import { ComptesEtBanque } from './ComptesEtBanque';
 import { ProfilTab } from './ProfilTab';
-import { BankConnection } from '../Bank/BankConnection';
 
 export const ParametrageContainer = ({ onExport, onLogout }) => {
-  const [activeSection, setActiveSection] = useState('comptes');
+  const [activeSection, setActiveSection] = useState('profil');
 
   const sections = [
-    { id: 'comptes', label: '💳 Comptes Bancaires' },
-    { id: 'bank', label: '🏦 Synchronisation Bancaire' },
-    { id: 'categories', label: '🏷️ Catégories' },
-    { id: 'recurrentes', label: '🔄 Charges & Revenus Récurrents' }, // 🆕 UNIFIÉ
+    { id: 'profil', label: '👤 Mon Profil' },
+    { id: 'comptes', label: '🏦 Mes Comptes & Banque' },
+    { id: 'recurrentes', label: '🔄 Mes Transactions Récurrentes' },
     { id: 'memos', label: '📝 Mémos Budgétaires' },
-    { id: 'profil', label: '👤 Mon Profil' }
+    { id: 'categories', label: '🏷️ Mes Catégories' }
   ];
 
   const renderSection = () => {
     switch (activeSection) {
-      case 'comptes':
-        return <ComptesTab />;
-      case 'bank':
-        return <BankConnection />;
-      case 'categories':
-        return <CategoriesTab />;
-      case 'recurrentes': // 🆕 UNIFIÉ (remplace 'charges')
-        return <ChargesRecurrentes />;
-      case 'memos':
-        return <MemosTab />;
       case 'profil':
         return <ProfilTab onExport={onExport} onLogout={onLogout} />;
+      case 'comptes':
+        return <ComptesEtBanque />;
+      case 'recurrentes':
+        return <ChargesRecurrentes />;
+      case 'memos':
+        return <MemosBudgetaires />;
+      case 'categories':
+        return <CategoriesTab />;
       default:
-        return <ComptesTab />;
+        return <ProfilTab onExport={onExport} onLogout={onLogout} />;
     }
   };
 

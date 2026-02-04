@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { usePrevisionnel } from '../../hooks/usePrevisionnel';
 import { useChargesFixes } from '../../hooks/useChargesFixes';
-import { Plus, Edit2, Trash2, X, Check, Calendar, Euro, Tag, Building2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Check, Calendar, Euro, Tag, Building2, Save } from 'lucide-react';
 
 export const ChargesRecurrentes = () => {
   const { chargesFixes, comptes } = useFinance();
@@ -10,7 +10,8 @@ export const ChargesRecurrentes = () => {
   const { addChargeFixe, updateChargeFixe, deleteChargeFixe } = useChargesFixes();
 
   const [dismissedIds, setDismissedIds] = useState([]);
-  const [editingId, setEditingId] = useState(null);
+  const [editingRecurrenceId, setEditingRecurrenceId] = useState(null);
+  const [editingChargeId, setEditingChargeId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     nom: '',
@@ -26,7 +27,44 @@ export const ChargesRecurrentes = () => {
     r => !dismissedIds.includes(r.id)
   );
 
-  // Ajouter une récurrence détectée
+  // Éditer une récurrence avant de l'ajouter
+  const handleEditRecurrence = (recurrence) => {
+    setEditingRecurrenceId(recurrence.id);
+    setFormData({
+      nom: recurrence.nom,
+      montant: recurrence.montant.toString(),
+      categorie: recurrence.categorie,
+      frequence: recurrence.frequence.toLowerCase(),
+      compte: recurrence.compte,
+      jourMois: 1
+    });
+  };
+
+  // Sauvegarder la récurrence éditée et l'ajouter
+  const handleSaveRecurrence = (recurrenceId) => {
+    const newCharge = {
+      nom: formData.nom,
+      montant: parseFloat(formData.montant),
+      categorie: formData.categorie,
+      frequence: formData.frequence,
+      compte: formData.compte,
+      jourMois: parseInt(formData.jourMois)
+    };
+
+    addChargeFixe(newCharge);
+    setDismissedIds(prev => [...prev, recurrenceId]);
+    setEditingRecurrenceId(null);
+    setFormData({
+      nom: '',
+      montant: '',
+      categorie: 'Autres dépenses',
+      frequence: 'mensuelle',
+      compte: comptes[0]?.nom || '',
+      jourMois: 1
+    });
+  };
+
+  // Ajouter une récurrence sans modification
   const handleAddRecurrence = (recurrence) => {
     const newCharge = {
       nom: recurrence.nom,
@@ -44,6 +82,9 @@ export const ChargesRecurrentes = () => {
   // Ignorer une récurrence
   const handleDismissRecurrence = (recurrenceId) => {
     setDismissedIds(prev => [...prev, recurrenceId]);
+    if (editingRecurrenceId === recurrenceId) {
+      setEditingRecurrenceId(null);
+    }
   };
 
   // Ajouter manuellement
@@ -70,9 +111,9 @@ export const ChargesRecurrentes = () => {
     setShowAddForm(false);
   };
 
-  // Modifier une charge
-  const handleEdit = (charge) => {
-    setEditingId(charge.id);
+  // Modifier une charge existante
+  const handleEditCharge = (charge) => {
+    setEditingChargeId(charge.id);
     setFormData({
       nom: charge.nom,
       montant: charge.montant.toString(),
@@ -83,13 +124,13 @@ export const ChargesRecurrentes = () => {
     });
   };
 
-  // Sauvegarder modification
-  const handleSaveEdit = () => {
-    updateChargeFixe(editingId, {
+  // Sauvegarder modification d'une charge
+  const handleSaveCharge = () => {
+    updateChargeFixe(editingChargeId, {
       ...formData,
       montant: parseFloat(formData.montant)
     });
-    setEditingId(null);
+    setEditingChargeId(null);
     setFormData({
       nom: '',
       montant: '',
@@ -152,47 +193,120 @@ export const ChargesRecurrentes = () => {
                 key={recurrence.id}
                 className="bg-white border-2 border-amber-200 rounded-xl p-4 hover:shadow-md transition-all"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-bold text-gray-800 mb-2">{recurrence.nom}</h4>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(recurrence.frequence)}`}>
-                        📅 {recurrence.frequence}
-                      </span>
-                      <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg">
-                        🏷️ {recurrence.categorie}
-                      </span>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
-                        🏦 {recurrence.compte}
-                      </span>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg">
-                        🔁 {recurrence.nombreOccurrences} mois détectés
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 ml-4">
-                    <div className="text-right">
-                      <p className={`text-xl font-bold ${recurrence.montant < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {recurrence.montant.toFixed(2)} €
-                      </p>
+                {editingRecurrenceId === recurrence.id ? (
+                  // MODE ÉDITION
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
+                        <input
+                          type="text"
+                          value={formData.nom}
+                          onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Montant (€)</label>
+                        <input
+                          type="number"
+                          value={formData.montant}
+                          onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Catégorie</label>
+                        <select
+                          value={formData.categorie}
+                          onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                        >
+                          {categories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Fréquence</label>
+                        <select
+                          value={formData.frequence}
+                          onChange={(e) => setFormData({ ...formData, frequence: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                        >
+                          {frequences.map(freq => (
+                            <option key={freq} value={freq}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleAddRecurrence(recurrence)}
-                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex items-center gap-1 text-sm font-medium"
+                        onClick={() => handleSaveRecurrence(recurrence.id)}
+                        className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium flex items-center justify-center gap-1"
                       >
-                        <Check size={16} />
-                        Ajouter
+                        <Save size={16} />
+                        Enregistrer et Ajouter
                       </button>
                       <button
-                        onClick={() => handleDismissRecurrence(recurrence.id)}
-                        className="px-3 py-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-all"
+                        onClick={() => setEditingRecurrenceId(null)}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
                       >
-                        <X size={16} />
+                        Annuler
                       </button>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  // MODE AFFICHAGE
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-bold text-gray-800 mb-2">{recurrence.nom}</h4>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(recurrence.frequence)}`}>
+                          📅 {recurrence.frequence}
+                        </span>
+                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg">
+                          🏷️ {recurrence.categorie}
+                        </span>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
+                          🏦 {recurrence.compte}
+                        </span>
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg">
+                          🔁 {recurrence.nombreOccurrences} mois détectés
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 ml-4">
+                      <div className="text-right">
+                        <p className={`text-xl font-bold ${recurrence.montant < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {recurrence.montant.toFixed(2)} €
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditRecurrence(recurrence)}
+                          className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
+                          title="Modifier avant d'ajouter"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleAddRecurrence(recurrence)}
+                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex items-center gap-1 text-sm font-medium"
+                        >
+                          <Check size={16} />
+                          Ajouter
+                        </button>
+                        <button
+                          onClick={() => handleDismissRecurrence(recurrence.id)}
+                          className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-all"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -204,13 +318,13 @@ export const ChargesRecurrentes = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              ✅ Mes charges & revenus récurrents
+              ✅ Mes transactions récurrentes confirmées
               <span className="bg-blue-500 text-white text-sm font-bold px-2 py-1 rounded-full">
                 {chargesFixes.length}
               </span>
             </h3>
             <p className="text-gray-600 text-sm mt-1">
-              Gérez toutes vos transactions récurrentes (revenus positifs et dépenses négatives)
+              Revenus et dépenses qui reviennent régulièrement
             </p>
           </div>
           <button
@@ -225,7 +339,7 @@ export const ChargesRecurrentes = () => {
         {/* Formulaire d'ajout manuel */}
         {showAddForm && (
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
-            <h4 className="font-bold text-blue-900 mb-4">➕ Nouvelle charge/revenu fixe</h4>
+            <h4 className="font-bold text-blue-900 mb-4">➕ Nouvelle transaction récurrente</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -333,7 +447,7 @@ export const ChargesRecurrentes = () => {
         {/* Liste des charges fixes */}
         {chargesFixes.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            <p className="text-lg">📭 Aucune charge/revenu fixe configuré</p>
+            <p className="text-lg">📭 Aucune transaction récurrente configurée</p>
             <p className="text-sm mt-2">Ajoutez-en manuellement ou synchronisez votre banque pour détecter les récurrences</p>
           </div>
         ) : (
@@ -343,7 +457,7 @@ export const ChargesRecurrentes = () => {
                 key={charge.id}
                 className="bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
               >
-                {editingId === charge.id ? (
+                {editingChargeId === charge.id ? (
                   // Mode édition
                   <div className="space-y-3">
                     <div className="grid grid-cols-3 gap-3">
@@ -371,13 +485,13 @@ export const ChargesRecurrentes = () => {
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={handleSaveEdit}
+                        onClick={handleSaveCharge}
                         className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium"
                       >
                         ✓ Sauvegarder
                       </button>
                       <button
-                        onClick={() => setEditingId(null)}
+                        onClick={() => setEditingChargeId(null)}
                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
                       >
                         Annuler
@@ -409,7 +523,7 @@ export const ChargesRecurrentes = () => {
                       </p>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEdit(charge)}
+                          onClick={() => handleEditCharge(charge)}
                           className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
                         >
                           <Edit2 size={16} />
@@ -437,6 +551,7 @@ export const ChargesRecurrentes = () => {
           <li>• <strong>Récurrences détectées :</strong> Analysées automatiquement depuis vos transactions bancaires synchronisées</li>
           <li>• <strong>Montants positifs :</strong> Revenus récurrents (salaires, primes, etc.)</li>
           <li>• <strong>Montants négatifs :</strong> Charges récurrentes (loyer, abonnements, etc.)</li>
+          <li>• <strong>Modifier avant d'ajouter :</strong> Cliquez sur ✏️ pour ajuster les détails d'une récurrence détectée</li>
           <li>• <strong>Calcul automatique :</strong> Utilisées dans le mode "Automatique" du Prévisionnel</li>
         </ul>
       </div>
