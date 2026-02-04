@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Check } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 
-export const MemosTab = () => {
+export const MemosBudgetaires = () => {
   const { memos, setMemos } = useFinance();
   const [newMemo, setNewMemo] = useState({ date: '', description: '', budget: '' });
   const [editingMemo, setEditingMemo] = useState(null);
