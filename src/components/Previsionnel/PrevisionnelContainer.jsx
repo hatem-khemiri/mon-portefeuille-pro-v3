@@ -66,7 +66,7 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
       {/* ═══ NOTIFICATION RÉCURRENCES (si détectées) ═══ */}
       {nombreSuggestions > 0 && (
         <div 
-          onClick={() => setActiveTab && setActiveTab('parametres')}
+          onClick={() => setActiveTab && setActiveTab('parametrage')}
           className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all group"
         >
           <div className="flex items-center justify-between">
