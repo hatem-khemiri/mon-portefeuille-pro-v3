@@ -3,41 +3,45 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { useFinance } from '../../contexts/FinanceContext';
 
 export const GraphiqueSolde = () => {
-  const { comptes, transactions, budgetPrevisionnel, dateCreationCompte } = useFinance();
+  const { comptes, transactions, budgetPrevisionnel } = useFinance();
 
   const data = useMemo(() => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     const anneeActuelle = new Date().getFullYear();
     
+    // ✅ Solde initial TOTAL de tous les comptes
+    const soldeInitialTotal = comptes.reduce((sum, c) => sum + (c.soldeInitial || 0), 0);
+    
+    let soldeReelCumule = soldeInitialTotal;
+    let soldePrevisionnelCumule = soldeInitialTotal;
+    
     return mois.map((nom, index) => {
-      // Calcul du solde réel
       const debutMois = new Date(anneeActuelle, index, 1);
       const finMois = new Date(anneeActuelle, index + 1, 0);
       
-      const transactionsMois = (transactions || []).filter(t => {
+      // ✅ SOLDE RÉEL : Cumuler toutes les transactions jusqu'à la fin du mois
+      const transactionsJusquaMois = (transactions || []).filter(t => {
         const dateT = new Date(t.date);
-        return dateT >= debutMois && dateT <= finMois;
+        return dateT <= finMois && t.statut === 'realisee';
       });
       
-      const soldeInitialTotal = comptes.reduce((sum, c) => sum + (c.soldeInitial || 0), 0);
-      const mouvementsMois = transactionsMois.reduce((sum, t) => sum + t.montant, 0);
-      const soldeReel = soldeInitialTotal + mouvementsMois;
+      soldeReelCumule = soldeInitialTotal + transactionsJusquaMois.reduce((sum, t) => sum + t.montant, 0);
       
-      // Calcul du solde prévisionnel
-      const revenusPrev = budgetPrevisionnel?.revenus?.[index] || 0;
-      const depensesPrev = budgetPrevisionnel?.depenses?.[index] || 0;
-      const facturesPrev = budgetPrevisionnel?.factures?.[index] || 0;
-      const epargnesPrev = budgetPrevisionnel?.epargnes?.[index] || 0;
+      // ✅ SOLDE PRÉVISIONNEL : Cumuler revenus - dépenses - factures - épargnes jusqu'au mois
+      const revenusCumules = (budgetPrevisionnel?.revenus || []).slice(0, index + 1).reduce((a, b) => a + b, 0);
+      const depensesCumulees = (budgetPrevisionnel?.depenses || []).slice(0, index + 1).reduce((a, b) => a + b, 0);
+      const facturesCumulees = (budgetPrevisionnel?.factures || []).slice(0, index + 1).reduce((a, b) => a + b, 0);
+      const epargnesCumulees = (budgetPrevisionnel?.epargnes || []).slice(0, index + 1).reduce((a, b) => a + b, 0);
       
-      const soldePrevisionnel = soldeInitialTotal + revenusPrev - depensesPrev - facturesPrev - epargnesPrev;
+      soldePrevisionnelCumule = soldeInitialTotal + revenusCumules - depensesCumulees - facturesCumulees - epargnesCumulees;
       
       return {
         mois: nom,
-        'Solde Réel': Math.round(soldeReel),
-        'Solde Prévisionnel': Math.round(soldePrevisionnel)
+        'Solde Réel': Math.round(soldeReelCumule),
+        'Solde Prévisionnel': Math.round(soldePrevisionnelCumule)
       };
     });
-  }, [comptes, transactions, budgetPrevisionnel, dateCreationCompte]);
+  }, [comptes, transactions, budgetPrevisionnel]);
 
   return (
     <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">

@@ -23,6 +23,7 @@ export const FinanceProvider = ({ children }) => {
   const [epargnes, setEpargnes] = useState([]);
   const [dettes, setDettes] = useState([]);
   const [memos, setMemos] = useState([]);
+  const [memosBudgetaires, setMemosBudgetaires] = useState([]); // 🆕 AJOUTÉ
   
   // Catégories
   const [categoriesDepenses, setCategoriesDepenses] = useState([...CATEGORIES_DEPENSES]);
@@ -50,6 +51,7 @@ export const FinanceProvider = ({ children }) => {
       setEpargnes(data.epargnes || []);
       setDettes(data.dettes || []);
       setMemos(data.memos || []);
+      setMemosBudgetaires(data.memosBudgetaires || []); // 🆕
       setCategoriesDepenses(data.categoriesDepenses || [...CATEGORIES_DEPENSES]);
       setCategoriesRevenus(data.categoriesRevenus || [...CATEGORIES_REVENUS]);
       setCategoriesEpargnes(data.categoriesEpargnes || [...CATEGORIES_EPARGNES]);
@@ -69,6 +71,7 @@ export const FinanceProvider = ({ children }) => {
         epargnes,
         dettes,
         memos,
+        memosBudgetaires, // 🆕
         categoriesDepenses,
         categoriesRevenus,
         categoriesEpargnes
@@ -76,49 +79,23 @@ export const FinanceProvider = ({ children }) => {
       saveUserData(currentUser, data);
     }
   }, [
-    currentUser, 
-    comptes, 
-    chargesFixes, 
-    transactions, 
-    epargnes, 
-    dettes, 
-    memos,
-    categoriesDepenses,
-    categoriesRevenus,
-    categoriesEpargnes,
-    dateCreationCompte,
-    isLoading
+    currentUser, comptes, chargesFixes, transactions, epargnes, dettes, 
+    memos, memosBudgetaires, categoriesDepenses, categoriesRevenus, 
+    categoriesEpargnes, dateCreationCompte, isLoading
   ]);
 
   const value = {
-    currentUser,
-    setCurrentUser,
-    isLoading,
-    setIsLoading,
-    comptes,
-    setComptes,
-    transactions,
-    setTransactions,
-    chargesFixes,
-    setChargesFixes,
-    epargnes,
-    setEpargnes,
-    dettes,
-    setDettes,
-    memos,
-    setMemos,
-    categoriesDepenses,
-    setCategoriesDepenses,
-    categoriesRevenus,
-    setCategoriesRevenus,
-    categoriesEpargnes,
-    setCategoriesEpargnes,
-    budgetPrevisionnel,
-    setBudgetPrevisionnel,
-    dateCreationCompte,
-    setDateCreationCompte,
-    modeCalculPrevisionnel,
-    setModeCalculPrevisionnel,
+    currentUser, setCurrentUser, isLoading, setIsLoading,
+    comptes, setComptes, transactions, setTransactions,
+    chargesFixes, setChargesFixes, epargnes, setEpargnes,
+    dettes, setDettes, memos, setMemos,
+    memosBudgetaires, setMemosBudgetaires, // 🆕
+    categoriesDepenses, setCategoriesDepenses,
+    categoriesRevenus, setCategoriesRevenus,
+    categoriesEpargnes, setCategoriesEpargnes,
+    budgetPrevisionnel, setBudgetPrevisionnel,
+    dateCreationCompte, setDateCreationCompte,
+    modeCalculPrevisionnel, setModeCalculPrevisionnel,
     loadData
   };
 

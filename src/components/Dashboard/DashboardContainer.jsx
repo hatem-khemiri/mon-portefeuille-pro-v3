@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { CreditCard, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
+import { CreditCard, TrendingUp, TrendingDown, PiggyBank, Calendar } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useStatistiques } from '../../hooks/useStatistiques';
 import { StatCard } from './StatCard';
@@ -18,7 +18,8 @@ export const DashboardContainer = () => {
     dettes, 
     budgetPrevisionnel,
     categoriesDepenses,
-    categoriesEpargnes 
+    categoriesEpargnes,
+    memosBudgetaires // 🆕 AJOUT
   } = useFinance();
   
   const [vueTableauBord, setVueTableauBord] = useState('mensuel');
@@ -40,7 +41,24 @@ export const DashboardContainer = () => {
     [dettes]
   );
   
-  // Dépenses incluant "à venir" (pour vue prospective)
+  // 🆕 MÉMOS BUDGÉTAIRES À VENIR
+  const memosAVenir = useMemo(() => {
+    const aujourd'hui = new Date();
+    const finPeriode = vueTableauBord === 'mensuel' 
+      ? new Date(aujourd'hui.getFullYear(), aujourd'hui.getMonth() + 1, 0) // Fin du mois
+      : new Date(aujourd'hui.getFullYear(), 11, 31); // Fin de l'année
+    
+    return (memosBudgetaires || [])
+      .filter(m => {
+        const dateMemo = new Date(m.date);
+        return dateMemo >= aujourd'hui && dateMemo <= finPeriode;
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  }, [memosBudgetaires, vueTableauBord]);
+  
+  const totalMemos = memosAVenir.reduce((sum, m) => sum + m.montant, 0);
+  
+  // Dépenses incluant "à venir"
   const depensesParCategorie = useMemo(() => {
     const grouped = {};
     transactions
@@ -55,7 +73,7 @@ export const DashboardContainer = () => {
     return Object.entries(grouped).map(([name, value]) => ({ name, value }));
   }, [transactions]);
 
-  // Dépenses réalisées uniquement (pour vue historique)
+  // Dépenses réalisées uniquement
   const depensesRealisees = useMemo(() => {
     const grouped = {};
     transactions
@@ -72,7 +90,7 @@ export const DashboardContainer = () => {
 
   return (
     <div className="space-y-6">
-      {/* EN-TÊTE AVEC BOUTONS VUE */}
+      {/* EN-TÊTE */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
           Tableau de Bord
@@ -101,7 +119,7 @@ export const DashboardContainer = () => {
         </div>
       </div>
 
-      {/* STATCARDS (5 cartes) */}
+      {/* STATCARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatCard
           couleur="from-blue-500 to-blue-600"
@@ -183,6 +201,61 @@ export const DashboardContainer = () => {
         />
       </div>
 
+      {/* 🆕 WIDGET MÉMOS BUDGÉTAIRES */}
+      {memosAVenir.length > 0 && (
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-purple-900 flex items-center gap-2">
+                📝 Événements budgétaires à venir
+                <span className="bg-purple-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                  {memosAVenir.length}
+                </span>
+              </h3>
+              <p className="text-sm text-purple-700">
+                {vueTableauBord === 'mensuel' ? 'Ce mois-ci' : 'Cette année'} · Total : {totalMemos.toFixed(2)} €
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {memosAVenir.slice(0, 6).map((memo) => (
+              <div
+                key={memo.id}
+                className="bg-white border-2 border-purple-200 rounded-xl p-3 hover:shadow-md transition-all"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <h4 className="font-bold text-gray-800 text-sm">{memo.description}</h4>
+                    <p className="text-xs text-gray-600 mt-1">
+                      📅 {new Date(memo.date).toLocaleDateString('fr-FR', { 
+                        day: 'numeric', 
+                        month: 'short' 
+                      })}
+                    </p>
+                  </div>
+                  <p className="text-lg font-bold text-purple-600">
+                    {memo.montant.toFixed(0)}€
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                    {memo.categorie}
+                  </span>
+                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                    {memo.compte}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {memosAVenir.length > 6 && (
+            <p className="text-xs text-purple-600 text-center mt-3">
+              +{memosAVenir.length - 6} autre{memosAVenir.length - 6 > 1 ? 's' : ''} événement{memosAVenir.length - 6 > 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* BANDEAU INFO */}
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-2xl p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
@@ -206,7 +279,7 @@ export const DashboardContainer = () => {
         </div>
       </div>
 
-      {/* ✅ NOUVEAUTÉ : 4 GRAPHIQUES PRÉVISIONNEL VS RÉEL */}
+      {/* GRAPHIQUES PRÉVISIONNEL VS RÉEL */}
       <div className="pt-4">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">📊 Prévisionnel vs Réel</h2>
         <p className="text-gray-600 mb-4">Comparaison de vos budgets prévisionnels avec la réalité</p>

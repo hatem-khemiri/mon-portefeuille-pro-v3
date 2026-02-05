@@ -10,18 +10,21 @@ export const GraphiqueDepenses = () => {
     const anneeActuelle = new Date().getFullYear();
     
     return mois.map((nom, index) => {
-      // Calcul des dépenses réelles
+      // ✅ Calcul des dépenses réelles DU MOIS UNIQUEMENT
       const debutMois = new Date(anneeActuelle, index, 1);
       const finMois = new Date(anneeActuelle, index + 1, 0);
       
       const transactionsMois = (transactions || []).filter(t => {
         const dateT = new Date(t.date);
-        return dateT >= debutMois && dateT <= finMois && t.montant < 0;
+        return dateT >= debutMois && 
+               dateT <= finMois && 
+               t.montant < 0 && 
+               t.statut === 'realisee'; // ✅ Uniquement les réalisées
       });
       
       const depensesReelles = Math.abs(transactionsMois.reduce((sum, t) => sum + t.montant, 0));
       
-      // Dépenses prévisionnelles
+      // Dépenses prévisionnelles DU MOIS
       const depensesPrev = budgetPrevisionnel?.depenses?.[index] || 0;
       const facturesPrev = budgetPrevisionnel?.factures?.[index] || 0;
       const totalPrev = depensesPrev + facturesPrev;

@@ -10,18 +10,21 @@ export const GraphiqueRevenus = () => {
     const anneeActuelle = new Date().getFullYear();
     
     return mois.map((nom, index) => {
-      // Calcul des revenus réels
+      // ✅ Calcul des revenus réels DU MOIS UNIQUEMENT
       const debutMois = new Date(anneeActuelle, index, 1);
       const finMois = new Date(anneeActuelle, index + 1, 0);
       
       const transactionsMois = (transactions || []).filter(t => {
         const dateT = new Date(t.date);
-        return dateT >= debutMois && dateT <= finMois && t.montant > 0;
+        return dateT >= debutMois && 
+               dateT <= finMois && 
+               t.montant > 0 && 
+               t.statut === 'realisee'; // ✅ Uniquement les réalisées
       });
       
       const revenusReels = transactionsMois.reduce((sum, t) => sum + t.montant, 0);
       
-      // Revenus prévisionnels
+      // Revenus prévisionnels DU MOIS
       const revenusPrev = budgetPrevisionnel?.revenus?.[index] || 0;
       
       return {
