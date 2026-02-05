@@ -43,15 +43,15 @@ export const DashboardContainer = () => {
   
   // 🆕 MÉMOS BUDGÉTAIRES À VENIR
   const memosAVenir = useMemo(() => {
-    const aujourd'hui = new Date();
+    const aujourdhui = new Date();
     const finPeriode = vueTableauBord === 'mensuel' 
-      ? new Date(aujourd'hui.getFullYear(), aujourd'hui.getMonth() + 1, 0) // Fin du mois
-      : new Date(aujourd'hui.getFullYear(), 11, 31); // Fin de l'année
+      ? new Date(aujourdhui.getFullYear(), aujourdhui.getMonth() + 1, 0) // Fin du mois
+      : new Date(aujourdhui.getFullYear(), 11, 31); // Fin de l'année
     
     return (memosBudgetaires || [])
       .filter(m => {
         const dateMemo = new Date(m.date);
-        return dateMemo >= aujourd'hui && dateMemo <= finPeriode;
+        return dateMemo >= aujourdhui && dateMemo <= finPeriode;
       })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [memosBudgetaires, vueTableauBord]);
