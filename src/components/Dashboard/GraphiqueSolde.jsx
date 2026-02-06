@@ -9,31 +9,40 @@ export const GraphiqueSolde = () => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     const anneeActuelle = new Date().getFullYear();
     
-    // ✅ Solde initial TOTAL de tous les comptes
-    const soldeInitialTotal = comptes.reduce((sum, c) => sum + (c.soldeInitial || 0), 0);
+    // ✅ SOLDE INITIAL TOTAL
+    const soldeInitial = comptes.reduce((sum, c) => sum + (c.soldeInitial || 0), 0);
     
-    let soldeReelCumule = soldeInitialTotal;
-    let soldePrevisionnelCumule = soldeInitialTotal;
+    let soldeReelCumule = soldeInitial;
+    let soldePrevisionnelCumule = soldeInitial;
     
-    return mois.map((nom, index) => {
-      const debutMois = new Date(anneeActuelle, index, 1);
-      const finMois = new Date(anneeActuelle, index + 1, 0);
+    return mois.map((nom, moisIndex) => {
+      const finMois = new Date(anneeActuelle, moisIndex + 1, 0);
       
-      // ✅ SOLDE RÉEL : Cumuler toutes les transactions jusqu'à la fin du mois
-      const transactionsJusquaMois = (transactions || []).filter(t => {
+      // ═══════════════════════════════════════════════════════
+      // SOLDE RÉEL = Solde initial + TOUTES les transactions réalisées jusqu'à la fin du mois
+      // ═══════════════════════════════════════════════════════
+      const transactionsJusquAuMois = (transactions || []).filter(t => {
         const dateT = new Date(t.date);
         return dateT <= finMois && t.statut === 'realisee';
       });
       
-      soldeReelCumule = soldeInitialTotal + transactionsJusquaMois.reduce((sum, t) => sum + t.montant, 0);
+      const mouvementsRels = transactionsJusquAuMois.reduce((sum, t) => sum + t.montant, 0);
+      soldeReelCumule = soldeInitial + mouvementsRels;
       
-      // ✅ SOLDE PRÉVISIONNEL : Cumuler revenus - dépenses - factures - épargnes jusqu'au mois
-      const revenusCumules = (budgetPrevisionnel?.revenus || []).slice(0, index + 1).reduce((a, b) => a + b, 0);
-      const depensesCumulees = (budgetPrevisionnel?.depenses || []).slice(0, index + 1).reduce((a, b) => a + b, 0);
-      const facturesCumulees = (budgetPrevisionnel?.factures || []).slice(0, index + 1).reduce((a, b) => a + b, 0);
-      const epargnesCumulees = (budgetPrevisionnel?.epargnes || []).slice(0, index + 1).reduce((a, b) => a + b, 0);
+      // ═══════════════════════════════════════════════════════
+      // SOLDE PRÉVISIONNEL = Solde initial + cumul budgets jusqu'au mois
+      // ═══════════════════════════════════════════════════════
+      let revenusCumules = 0;
+      let depensesCumulees = 0;
+      let epargnesCumulees = 0;
       
-      soldePrevisionnelCumule = soldeInitialTotal + revenusCumules - depensesCumulees - facturesCumulees - epargnesCumulees;
+      for (let i = 0; i <= moisIndex; i++) {
+        revenusCumules += (budgetPrevisionnel?.revenus?.[i] || 0);
+        depensesCumulees += (budgetPrevisionnel?.depenses?.[i] || 0);
+        epargnesCumulees += (budgetPrevisionnel?.epargnes?.[i] || 0);
+      }
+      
+      soldePrevisionnelCumule = soldeInitial + revenusCumules - depensesCumulees - epargnesCumulees;
       
       return {
         mois: nom,
@@ -49,7 +58,7 @@ export const GraphiqueSolde = () => {
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           📊 Évolution du Solde
         </h3>
-        <p className="text-sm text-gray-600">Comparaison Prévisionnel vs Réel</p>
+        <p className="text-sm text-gray-600">Comparaison Prévisionnel vs Réel (Cumulé)</p>
       </div>
       
       <ResponsiveContainer width="100%" height={250}>

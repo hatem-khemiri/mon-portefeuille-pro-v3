@@ -9,30 +9,28 @@ export const GraphiqueDepenses = () => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     const anneeActuelle = new Date().getFullYear();
     
-    return mois.map((nom, index) => {
-      // ✅ Calcul des dépenses réelles DU MOIS UNIQUEMENT
-      const debutMois = new Date(anneeActuelle, index, 1);
-      const finMois = new Date(anneeActuelle, index + 1, 0);
+    return mois.map((nom, moisIndex) => {
+      const debutMois = new Date(anneeActuelle, moisIndex, 1);
+      const finMois = new Date(anneeActuelle, moisIndex + 1, 0);
       
+      // ✅ DÉPENSES RÉELLES du mois (transactions réalisées uniquement)
       const transactionsMois = (transactions || []).filter(t => {
         const dateT = new Date(t.date);
         return dateT >= debutMois && 
                dateT <= finMois && 
                t.montant < 0 && 
-               t.statut === 'realisee'; // ✅ Uniquement les réalisées
+               t.statut === 'realisee';
       });
       
       const depensesReelles = Math.abs(transactionsMois.reduce((sum, t) => sum + t.montant, 0));
       
-      // Dépenses prévisionnelles DU MOIS
-      const depensesPrev = budgetPrevisionnel?.depenses?.[index] || 0;
-      const facturesPrev = budgetPrevisionnel?.factures?.[index] || 0;
-      const totalPrev = depensesPrev + facturesPrev;
+      // ✅ DÉPENSES PRÉVISIONNELLES du mois (depuis le budget calculé)
+      const depensesPrev = budgetPrevisionnel?.depenses?.[moisIndex] || 0;
       
       return {
         mois: nom,
         'Dépenses Réelles': Math.round(depensesReelles),
-        'Dépenses Prévisionnelles': Math.round(totalPrev)
+        'Dépenses Prévisionnelles': Math.round(depensesPrev)
       };
     });
   }, [transactions, budgetPrevisionnel]);
@@ -43,7 +41,7 @@ export const GraphiqueDepenses = () => {
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           💸 Dépenses Mensuelles
         </h3>
-        <p className="text-sm text-gray-600">Comparaison Prévisionnel vs Réel</p>
+        <p className="text-sm text-gray-600">Comparaison Prévisionnel vs Réel (par mois)</p>
       </div>
       
       <ResponsiveContainer width="100%" height={250}>

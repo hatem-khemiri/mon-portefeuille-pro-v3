@@ -9,23 +9,23 @@ export const GraphiqueRevenus = () => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     const anneeActuelle = new Date().getFullYear();
     
-    return mois.map((nom, index) => {
-      // ✅ Calcul des revenus réels DU MOIS UNIQUEMENT
-      const debutMois = new Date(anneeActuelle, index, 1);
-      const finMois = new Date(anneeActuelle, index + 1, 0);
+    return mois.map((nom, moisIndex) => {
+      const debutMois = new Date(anneeActuelle, moisIndex, 1);
+      const finMois = new Date(anneeActuelle, moisIndex + 1, 0);
       
+      // ✅ REVENUS RÉELS du mois (transactions réalisées uniquement)
       const transactionsMois = (transactions || []).filter(t => {
         const dateT = new Date(t.date);
         return dateT >= debutMois && 
                dateT <= finMois && 
                t.montant > 0 && 
-               t.statut === 'realisee'; // ✅ Uniquement les réalisées
+               t.statut === 'realisee';
       });
       
       const revenusReels = transactionsMois.reduce((sum, t) => sum + t.montant, 0);
       
-      // Revenus prévisionnels DU MOIS
-      const revenusPrev = budgetPrevisionnel?.revenus?.[index] || 0;
+      // ✅ REVENUS PRÉVISIONNELS du mois (depuis le budget calculé)
+      const revenusPrev = budgetPrevisionnel?.revenus?.[moisIndex] || 0;
       
       return {
         mois: nom,
@@ -41,7 +41,7 @@ export const GraphiqueRevenus = () => {
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           💰 Revenus Mensuels
         </h3>
-        <p className="text-sm text-gray-600">Comparaison Prévisionnel vs Réel</p>
+        <p className="text-sm text-gray-600">Comparaison Prévisionnel vs Réel (par mois)</p>
       </div>
       
       <ResponsiveContainer width="100%" height={250}>

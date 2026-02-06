@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { FinanceProvider, useFinance } from './contexts/FinanceContext';
 import { getCurrentUser, setCurrentUser as saveCurrentUser } from './utils/storage';
 import { useChargesFixes } from './hooks/useChargesFixes';
+import { useConfirmationTransactions } from './hooks/useConfirmationTransactions';
 import { Notification } from './components/Common/Notification';
+import { ConfirmationTransactionsModal } from './components/Common/ConfirmationTransactionsModal';
 import { Header } from './components/Layout/Header';
 import { LoginForm } from './components/Auth/LoginForm';
 import { SignupForm } from './components/Auth/SignupForm';
@@ -48,6 +50,7 @@ function AppContent() {
   } = useFinance();
 
   const { genererTransactionsChargesFixes } = useChargesFixes();
+  const { transactionsAConfirmer, marquerRealisee, reporter, annuler } = useConfirmationTransactions();
 
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState('login');
@@ -69,7 +72,6 @@ function AppContent() {
       setIsProcessingCallback(true);
 
       try {
-        // Récupérer les items
         const itemsResponse = await fetch('/api/bridge/items', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -84,7 +86,6 @@ function AppContent() {
         if (items && items.length > 0) {
           const latestItem = items[0];
 
-          // Sauvegarder la connexion bancaire
           localStorage.setItem(`bank_connection_${userId}`, JSON.stringify({
             itemId: latestItem.id,
             userId: userId,
@@ -92,7 +93,6 @@ function AppContent() {
             connectedAt: new Date().toISOString()
           }));
 
-          // Synchroniser les transactions
           console.log('🔄 Synchronisation transactions...');
           
           const syncResponse = await fetch('/api/bridge/sync', {
@@ -106,7 +106,6 @@ function AppContent() {
           const syncData = await syncResponse.json();
           console.log('✅ Transactions reçues:', syncData);
 
-          // Ajouter les transactions au contexte
           if (syncData.transactions && syncData.transactions.length > 0) {
             const existingTransactions = transactions || [];
             const bridgeIds = new Set(
@@ -123,32 +122,30 @@ function AppContent() {
               const updatedTransactions = [...existingTransactions, ...newTransactions];
               setTransactions(updatedTransactions);
               
-              console.log(`✅ ${newTransactions.length} nouvelles transactions ajoutées au contexte`);
+              console.log(`✅ ${newTransactions.length} nouvelles transactions ajoutées`);
               
               setNotification({ 
                 type: 'success', 
                 message: `✅ ${newTransactions.length} transaction(s) synchronisée(s) !` 
               });
               
-              // Rediriger vers l'onglet transactions
               setActiveTab('transactions');
             } else {
               setNotification({ 
                 type: 'info', 
-                message: 'ℹ️ Aucune nouvelle transaction à synchroniser' 
+                message: 'ℹ️ Aucune nouvelle transaction' 
               });
             }
           }
         }
 
-        // Nettoyer l'URL
         window.history.replaceState({}, document.title, window.location.pathname);
 
       } catch (error) {
         console.error('❌ Erreur callback:', error);
         setNotification({ 
           type: 'error', 
-          message: `❌ Erreur synchronisation : ${error.message}` 
+          message: `❌ Erreur : ${error.message}` 
         });
       } finally {
         setIsProcessingCallback(false);
@@ -160,7 +157,7 @@ function AppContent() {
     }
   }, [currentUser]);
 
-  // Charger l'utilisateur au démarrage
+  // Charger utilisateur au démarrage
   useEffect(() => {
     const loadUser = async () => {
       const username = getCurrentUser();
@@ -221,7 +218,6 @@ function AppContent() {
     const dateCreation = new Date().toISOString();
     setDateCreationCompte(dateCreation);
     
-    // 1. Comptes
     const nouveauxComptes = onboardingData.comptes.map((c, i) => {
       const soldeInitialFixe = c.soldeInitial !== undefined ? c.soldeInitial : parseFloat(c.solde);
       return {
@@ -235,13 +231,11 @@ function AppContent() {
     });
     setComptes(nouveauxComptes);
 
-    // 2. Transactions synchronisées
     if (onboardingData.transactions && onboardingData.transactions.length > 0) {
       console.log('💾 Sauvegarde de', onboardingData.transactions.length, 'transactions');
       setTransactions(onboardingData.transactions);
     }
 
-    // 3. Charges fixes
     const nouvellesCharges = [...onboardingData.revenus, ...onboardingData.charges, ...onboardingData.transferts].map((c, i) => {
       if (c.type === 'transfert') {
         return {
@@ -271,7 +265,6 @@ function AppContent() {
     });
     setChargesFixes(nouvellesCharges);
 
-    // 4. Épargnes
     const nouvellesEpargnes = onboardingData.epargnes.map((e, i) => ({
       id: Date.now() + i + 2000,
       ...e,
@@ -279,7 +272,6 @@ function AppContent() {
     }));
     setEpargnes(nouvellesEpargnes);
 
-    // 5. Générer transactions des charges fixes
     setTimeout(() => {
       genererTransactionsChargesFixes(nouvellesCharges, dateCreation);
     }, 500);
@@ -288,7 +280,7 @@ function AppContent() {
   };
 
   const handleExport = async () => {
-    setNotification({ type: 'info', message: '📄 Génération du rapport en cours...' });
+    setNotification({ type: 'info', message: '📄 Génération du rapport...' });
 
     try {
       const { generateReport } = await import('./utils/reportGenerator');
@@ -313,19 +305,19 @@ function AppContent() {
       if (newWindow) {
         setNotification({ 
           type: 'success', 
-          message: '✅ Rapport ouvert dans un nouvel onglet ! Vous pouvez l\'imprimer ou le sauvegarder.' 
+          message: '✅ Rapport ouvert !' 
         });
         setTimeout(() => URL.revokeObjectURL(url), 30000);
       } else {
         setNotification({ 
           type: 'warning', 
-          message: '⚠️ Pop-up bloquée ! Autorisez les pop-ups pour ce site et réessayez.' 
+          message: '⚠️ Pop-up bloquée !' 
         });
         URL.revokeObjectURL(url);
       }
     } catch (error) {
       console.error('Erreur export:', error);
-      setNotification({ type: 'error', message: '❌ Erreur lors de la génération du rapport' });
+      setNotification({ type: 'error', message: '❌ Erreur génération rapport' });
     }
   };
 
@@ -335,7 +327,7 @@ function AppContent() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-600">
-            {isProcessingCallback ? 'Synchronisation en cours...' : 'Chargement...'}
+            {isProcessingCallback ? 'Synchronisation...' : 'Chargement...'}
           </p>
         </div>
       </div>
@@ -351,7 +343,7 @@ function AppContent() {
               onBack={() => setShowForgotPassword(false)}
               onSuccess={() => {
                 setShowForgotPassword(false);
-                setNotification({ type: 'success', message: '✅ Mot de passe réinitialisé avec succès !' });
+                setNotification({ type: 'success', message: '✅ Mot de passe réinitialisé !' });
               }}
             />
           ) : authMode === 'login' ? (
@@ -378,6 +370,16 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <Notification notification={notification} onClose={() => setNotification(null)} />
+      
+      {/* 🆕 MODAL CONFIRMATION TRANSACTIONS */}
+      {transactionsAConfirmer.length > 0 && (
+        <ConfirmationTransactionsModal
+          transactions={transactionsAConfirmer}
+          onConfirm={marquerRealisee}
+          onReporter={reporter}
+          onAnnuler={annuler}
+        />
+      )}
       
       <Header onLogout={handleLogout} />
 
