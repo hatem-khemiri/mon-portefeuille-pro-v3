@@ -1,101 +1,126 @@
-import { useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { COLORS } from '../../utils/constants';
+import { useMemo } from 'react';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useFinance } from '../../contexts/FinanceContext';
+
+const COLORS = [
+  '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6',
+  '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16'
+];
 
 export const DepensesChart = ({ depensesParCategorie, depensesRealisees }) => {
-  const [includeAVenir, setIncludeAVenir] = useState(true);
-  
-  // Utiliser les données appropriées selon le toggle
-  const dataToDisplay = includeAVenir ? depensesParCategorie : depensesRealisees;
+  const { transactions } = useFinance();
 
-  if (dataToDisplay.length === 0) {
+  // ✅ RECALCUL AVEC TRANSACTIONS À VENIR
+  const depensesAvecAVenir = useMemo(() => {
+    const grouped = {};
+    
+    (transactions || [])
+      .filter(t => t.montant < 0 && t.type !== 'transfert')
+      .forEach(t => {
+        const categorie = t.categorie || 'Autres dépenses';
+        grouped[categorie] = (grouped[categorie] || 0) + Math.abs(t.montant);
+      });
+    
+    return Object.entries(grouped)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [transactions]);
+
+  const depensesReellesUniquement = useMemo(() => {
+    const grouped = {};
+    
+    (transactions || [])
+      .filter(t => t.montant < 0 && t.type !== 'transfert' && t.statut === 'realisee')
+      .forEach(t => {
+        const categorie = t.categorie || 'Autres dépenses';
+        grouped[categorie] = (grouped[categorie] || 0) + Math.abs(t.montant);
+      });
+    
+    return Object.entries(grouped)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [transactions]);
+
+  const [afficherAVenir, setAfficherAVenir] = React.useState(true);
+
+  const dataAffichee = afficherAVenir ? depensesAvecAVenir : depensesReellesUniquement;
+
+  if (dataAffichee.length === 0) {
     return (
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
-        <h3 className="text-xl font-bold mb-4">Répartition des dépenses</h3>
-        
-        <div className="flex items-center justify-center gap-4 mb-4">
-          <button
-            onClick={() => setIncludeAVenir(false)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              !includeAVenir
-                ? 'bg-blue-500 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            ✓ Réalisées
-          </button>
-          <button
-            onClick={() => setIncludeAVenir(true)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              includeAVenir
-                ? 'bg-blue-500 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            📊 Réalisées + À venir
-          </button>
+        <h3 className="text-lg font-bold text-gray-800 mb-4">💸 Répartition des Dépenses</h3>
+        <div className="text-center py-12 text-gray-500">
+          <p className="text-lg">📭 Aucune dépense</p>
+          <p className="text-sm mt-2">Les dépenses s'afficheront ici</p>
         </div>
-        
-        <p className="text-gray-500 text-center py-10">Aucune dépense enregistrée</p>
       </div>
     );
   }
 
+  const total = dataAffichee.reduce((sum, item) => sum + item.value, 0);
+
   return (
     <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
-      <h3 className="text-xl font-bold mb-4">Répartition des dépenses</h3>
-      
-      {/* Toggle */}
-      <div className="flex items-center justify-center gap-4 mb-6">
-        <button
-          onClick={() => setIncludeAVenir(false)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            !includeAVenir
-              ? 'bg-blue-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          ✓ Réalisées uniquement
-        </button>
-        <button
-          onClick={() => setIncludeAVenir(true)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            includeAVenir
-              ? 'bg-blue-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          📊 Réalisées + À venir
-        </button>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-lg font-bold text-gray-800">💸 Répartition des Dépenses</h3>
+          <p className="text-sm text-gray-600">Total : {total.toFixed(2)}€</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAfficherAVenir(true)}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+              afficherAVenir
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Avec prévisions
+          </button>
+          <button
+            onClick={() => setAfficherAVenir(false)}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+              !afficherAVenir
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Réalisées uniquement
+          </button>
+        </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={250}>
         <PieChart>
           <Pie
-            data={dataToDisplay}
+            data={dataAffichee}
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-            outerRadius={100}
+            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+            outerRadius={80}
             fill="#8884d8"
             dataKey="value"
           >
-            {dataToDisplay.map((entry, index) => (
+            {dataAffichee.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip formatter={(value) => `${value.toFixed(2)}€`} />
         </PieChart>
       </ResponsiveContainer>
-      
-      {/* Indicateur visuel en bas */}
-      <div className="mt-4 text-center">
-        <p className="text-xs text-gray-500">
-          {includeAVenir 
-            ? '📈 Vue prospective : dépenses réalisées et prévues' 
-            : '✅ Vue historique : dépenses réalisées uniquement'}
-        </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {dataAffichee.slice(0, 6).map((item, index) => (
+          <div key={index} className="flex items-center gap-2 text-sm">
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+            />
+            <span className="text-gray-700 truncate">{item.name}</span>
+            <span className="ml-auto font-medium text-gray-800">{item.value.toFixed(0)}€</span>
+          </div>
+        ))}
       </div>
     </div>
   );

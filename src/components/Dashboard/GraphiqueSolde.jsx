@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { useFinance } from '../../contexts/FinanceContext';
 
 export const GraphiqueSolde = () => {
-  const { comptes, transactions, budgetPrevisionnel } = useFinance();
+  const { comptes, transactions } = useFinance();
 
   const data = useMemo(() => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -12,45 +12,38 @@ export const GraphiqueSolde = () => {
     // ✅ SOLDE INITIAL TOTAL
     const soldeInitial = comptes.reduce((sum, c) => sum + (c.soldeInitial || 0), 0);
     
-    let soldeReelCumule = soldeInitial;
-    let soldePrevisionnelCumule = soldeInitial;
-    
     return mois.map((nom, moisIndex) => {
       const finMois = new Date(anneeActuelle, moisIndex + 1, 0);
       
       // ═══════════════════════════════════════════════════════
-      // SOLDE RÉEL = Solde initial + TOUTES les transactions réalisées jusqu'à la fin du mois
+      // SOLDE RÉEL = Solde initial + transactions RÉALISÉES jusqu'au mois
       // ═══════════════════════════════════════════════════════
-      const transactionsJusquAuMois = (transactions || []).filter(t => {
+      const transactionsRealisees = (transactions || []).filter(t => {
         const dateT = new Date(t.date);
         return dateT <= finMois && t.statut === 'realisee';
       });
       
-      const mouvementsRels = transactionsJusquAuMois.reduce((sum, t) => sum + t.montant, 0);
-      soldeReelCumule = soldeInitial + mouvementsRels;
+      const mouvementsReels = transactionsRealisees.reduce((sum, t) => sum + t.montant, 0);
+      const soldeReel = soldeInitial + mouvementsReels;
       
       // ═══════════════════════════════════════════════════════
-      // SOLDE PRÉVISIONNEL = Solde initial + cumul budgets jusqu'au mois
+      // SOLDE PRÉVISIONNEL = Solde initial + TOUTES transactions (réalisées + à venir) jusqu'au mois
       // ═══════════════════════════════════════════════════════
-      let revenusCumules = 0;
-      let depensesCumulees = 0;
-      let epargnesCumulees = 0;
+      const toutesTransactions = (transactions || []).filter(t => {
+        const dateT = new Date(t.date);
+        return dateT <= finMois; // ✅ Inclut réalisées ET à venir
+      });
       
-      for (let i = 0; i <= moisIndex; i++) {
-        revenusCumules += (budgetPrevisionnel?.revenus?.[i] || 0);
-        depensesCumulees += (budgetPrevisionnel?.depenses?.[i] || 0);
-        epargnesCumulees += (budgetPrevisionnel?.epargnes?.[i] || 0);
-      }
-      
-      soldePrevisionnelCumule = soldeInitial + revenusCumules - depensesCumulees - epargnesCumulees;
+      const mouvementsPrevus = toutesTransactions.reduce((sum, t) => sum + t.montant, 0);
+      const soldePrevu = soldeInitial + mouvementsPrevus;
       
       return {
         mois: nom,
-        'Solde Réel': Math.round(soldeReelCumule),
-        'Solde Prévisionnel': Math.round(soldePrevisionnelCumule)
+        'Solde Réel': Math.round(soldeReel),
+        'Solde Prévisionnel': Math.round(soldePrevu)
       };
     });
-  }, [comptes, transactions, budgetPrevisionnel]);
+  }, [comptes, transactions]);
 
   return (
     <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
