@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useFinance } from '../../contexts/FinanceContext';
 
@@ -7,10 +7,10 @@ const COLORS = [
   '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16'
 ];
 
-export const DepensesChart = ({ depensesParCategorie, depensesRealisees }) => {
+export const DepensesChart = () => {
   const { transactions } = useFinance();
+  const [afficherAVenir, setAfficherAVenir] = useState(true);
 
-  // ✅ RECALCUL AVEC TRANSACTIONS À VENIR
   const depensesAvecAVenir = useMemo(() => {
     const grouped = {};
     
@@ -40,8 +40,6 @@ export const DepensesChart = ({ depensesParCategorie, depensesRealisees }) => {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [transactions]);
-
-  const [afficherAVenir, setAfficherAVenir] = React.useState(true);
 
   const dataAffichee = afficherAVenir ? depensesAvecAVenir : depensesReellesUniquement;
 
