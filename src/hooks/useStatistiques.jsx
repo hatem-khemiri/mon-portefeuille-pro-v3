@@ -11,11 +11,11 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     if (vueTableauBord === 'mensuel') {
       dateDebut = new Date(anneeActuelle, moisActuel, 1);
       dateFin = aujourdHui;
-      dateFinPrevue = new Date(anneeActuelle, moisActuel + 1, 0);
+      dateFinPrevue = new Date(anneeActuelle, moisActuel + 1, 0, 23, 59, 59);
     } else {
       dateDebut = new Date(anneeActuelle, 0, 1);
       dateFin = aujourdHui;
-      dateFinPrevue = new Date(anneeActuelle, 11, 31);
+      dateFinPrevue = new Date(anneeActuelle, 11, 31, 23, 59, 59);
     }
     
     // Utiliser le compte sélectionné ou le premier compte courant par défaut
@@ -43,7 +43,7 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     
     const soldeInitialCompte = compteActuel.soldeInitial !== undefined ? compteActuel.soldeInitial : 0;
     
-    // ✅ HELPER : Normaliser date pour comparaison (évite bug timezone)
+    // ✅ HELPER : Normaliser date (évite bug timezone)
     const normaliserDate = (date) => {
       const d = new Date(date);
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -53,6 +53,9 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     const dateFinNorm = normaliserDate(dateFin);
     const dateFinPrevueNorm = normaliserDate(dateFinPrevue);
     
+    // ═══════════════════════════════════════════════════════
+    // CALCUL SOLDE DÉBUT DE PÉRIODE
+    // ═══════════════════════════════════════════════════════
     const toutesTransactionsRealisees = transactions.filter(t => 
       t.statut === 'realisee' && 
       t.compte === compteActuel.nom &&
@@ -65,31 +68,21 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     const mouvementsAvantPeriode = transactionsAvantPeriode.reduce((acc, t) => acc + t.montant, 0);
     const soldeDebut = soldeInitialCompte + mouvementsAvantPeriode;
     
+    // ═══════════════════════════════════════════════════════
+    // PÉRIODE RÉALISÉE (jusqu'à aujourd'hui)
+    // ═══════════════════════════════════════════════════════
     const transactionsPeriode = toutesTransactionsRealisees.filter(t => {
       const dateT = normaliserDate(t.date);
       return dateT >= dateDebutNorm && dateT <= dateFinNorm;
     });
     
-    // ✅ CORRECTION CRITIQUE : Utiliser 'a_venir' (underscore)
-    const transactionsAVenir = transactions.filter(t => {
-      const dateT = normaliserDate(t.date);
-      const dansLaPeriode = t.statut === 'a_venir' && 
-                            dateT > dateFinNorm && // ✅ Strictement après aujourd'hui
-                            dateT <= dateFinPrevueNorm;
-      
-      return dansLaPeriode && (
-        t.compte === compteActuel.nom || 
-        (t.type === 'transfert' && t.montant > 0 && t.compte === compteActuel.nom)
-      );
-    });
+    const revenusPeriode = transactionsPeriode
+      .filter(t => t.montant > 0)
+      .reduce((acc, t) => acc + t.montant, 0);
     
-    const revenusPeriode = transactionsPeriode.filter(t => 
-      t.montant > 0
-    ).reduce((acc, t) => acc + t.montant, 0);
-    
-    const depensesPeriode = Math.abs(transactionsPeriode.filter(t => 
-      t.montant < 0
-    ).reduce((acc, t) => acc + t.montant, 0));
+    const depensesPeriode = Math.abs(transactionsPeriode
+      .filter(t => t.montant < 0)
+      .reduce((acc, t) => acc + t.montant, 0));
     
     const epargnesPeriode = Math.abs(transactionsPeriode.filter(t => {
       const compte = comptes.find(c => c.nom === t.compte);
@@ -99,13 +92,24 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     const totalMouvementsPeriode = transactionsPeriode.reduce((acc, t) => acc + t.montant, 0);
     const soldeActuel = soldeDebut + totalMouvementsPeriode;
     
-    const revenusAVenir = transactionsAVenir.filter(t => 
-      t.montant > 0
-    ).reduce((acc, t) => acc + t.montant, 0);
+    // ═══════════════════════════════════════════════════════
+    // TRANSACTIONS À VENIR (après aujourd'hui, jusqu'à fin période prévue)
+    // ═══════════════════════════════════════════════════════
+    const transactionsAVenir = transactions.filter(t => {
+      const dateT = normaliserDate(t.date);
+      const estAVenir = (t.statut === 'a_venir' || t.statut === 'avenir');
+      const dansLaPeriode = dateT > dateFinNorm && dateT <= dateFinPrevueNorm;
+      
+      return estAVenir && dansLaPeriode && t.compte === compteActuel.nom;
+    });
     
-    const depensesAVenir = Math.abs(transactionsAVenir.filter(t => 
-      t.montant < 0
-    ).reduce((acc, t) => acc + t.montant, 0));
+    const revenusAVenir = transactionsAVenir
+      .filter(t => t.montant > 0)
+      .reduce((acc, t) => acc + t.montant, 0);
+    
+    const depensesAVenir = Math.abs(transactionsAVenir
+      .filter(t => t.montant < 0)
+      .reduce((acc, t) => acc + t.montant, 0));
     
     const epargnesAVenir = Math.abs(transactionsAVenir.filter(t => {
       const compte = comptes.find(c => c.nom === t.compte);
@@ -114,8 +118,10 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     
     const soldeAVenir = transactionsAVenir.reduce((acc, t) => acc + t.montant, 0);
     
-    const totalMouvementsAVenir = transactionsAVenir.reduce((acc, t) => acc + t.montant, 0);
-    const soldePrevisionnel = soldeActuel + totalMouvementsAVenir;
+    // ═══════════════════════════════════════════════════════
+    // SOLDE PRÉVISIONNEL = Solde actuel + mouvements à venir
+    // ═══════════════════════════════════════════════════════
+    const soldePrevisionnel = soldeActuel + soldeAVenir;
     
     return {
       soldeDebut,
