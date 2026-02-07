@@ -27,6 +27,70 @@ export const DashboardContainer = () => {
   
   const stats = useStatistiques(transactions, comptes, vueTableauBord, compteSelectionne);
   
+  // ✅ RECALCUL PRÉVISIONNEL TOTAL (réalisé + à venir DANS la période)
+  const statsPrevisionnelles = useMemo(() => {
+    const aujourdHui = new Date();
+    const moisActuel = aujourdHui.getMonth();
+    const anneeActuelle = aujourdHui.getFullYear();
+    
+    let dateDebut, dateFinPrevue;
+    
+    if (vueTableauBord === 'mensuel') {
+      dateDebut = new Date(anneeActuelle, moisActuel, 1);
+      dateFinPrevue = new Date(anneeActuelle, moisActuel + 1, 0, 23, 59, 59);
+    } else {
+      dateDebut = new Date(anneeActuelle, 0, 1);
+      dateFinPrevue = new Date(anneeActuelle, 11, 31, 23, 59, 59);
+    }
+    
+    const normaliserDate = (date) => {
+      const d = new Date(date);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+    
+    const dateDebutNorm = normaliserDate(dateDebut);
+    const dateFinPrevueNorm = normaliserDate(dateFinPrevue);
+    
+    const compteActuel = compteSelectionne 
+      ? comptes.find(c => c.nom === compteSelectionne)
+      : comptes.find(c => c.nom === 'Compte Courant' || c.type === 'courant');
+    
+    if (!compteActuel) {
+      return {
+        revenusPrevisionnel: 0,
+        depensesPrevisionnel: 0,
+        epargnesPrevisionnel: 0
+      };
+    }
+    
+    // TOUTES les transactions de la période (réalisées + à venir)
+    const toutesTransactionsPeriode = transactions.filter(t => {
+      const dateT = normaliserDate(t.date);
+      const dansLaPeriode = dateT >= dateDebutNorm && dateT <= dateFinPrevueNorm;
+      const estValide = (t.statut === 'realisee' || t.statut === 'a_venir' || t.statut === 'avenir');
+      return dansLaPeriode && estValide && t.compte === compteActuel.nom;
+    });
+    
+    const revenusPrevisionnel = toutesTransactionsPeriode
+      .filter(t => t.montant > 0)
+      .reduce((acc, t) => acc + t.montant, 0);
+    
+    const depensesPrevisionnel = Math.abs(toutesTransactionsPeriode
+      .filter(t => t.montant < 0)
+      .reduce((acc, t) => acc + t.montant, 0));
+    
+    const epargnesPrevisionnel = Math.abs(toutesTransactionsPeriode.filter(t => {
+      const compte = comptes.find(c => c.nom === t.compte);
+      return t.montant > 0 && compte && compte.type === 'epargne';
+    }).reduce((acc, t) => acc + t.montant, 0));
+    
+    return {
+      revenusPrevisionnel,
+      depensesPrevisionnel,
+      epargnesPrevisionnel
+    };
+  }, [transactions, comptes, vueTableauBord, compteSelectionne]);
+  
   const totalEpargnes = useMemo(() => {
     return epargnes.reduce((total, e) => {
       return total + e.comptesAssocies.reduce((sum, compteNom) => {
@@ -65,7 +129,7 @@ export const DashboardContainer = () => {
       .filter(t => 
         t.montant < 0 && 
         t.type !== 'transfert' &&
-        (t.statut === 'realisee' || t.statut === 'a_venir' || t.statut === 'avenir') // ✅ ACCEPTE LES DEUX
+        (t.statut === 'realisee' || t.statut === 'a_venir' || t.statut === 'avenir')
       )
       .forEach(t => {
         grouped[t.categorie] = (grouped[t.categorie] || 0) + Math.abs(t.montant);
@@ -165,9 +229,12 @@ export const DashboardContainer = () => {
           valeur={`${stats.revenusPeriode.toFixed(2)} €`}
           couleur="from-green-500 to-emerald-600"
           icon={TrendingUp}
-          details={stats.revenusAVenir > 0 ? [
-            { label: 'À venir', value: `${stats.revenusAVenir.toFixed(2)} €` }
-          ] : null}
+          details={[
+            { 
+              label: 'Prévisionnel', 
+              value: `${statsPrevisionnelles.revenusPrevisionnel.toFixed(2)} €` 
+            }
+          ]}
         />
         
         <StatCard
@@ -175,9 +242,12 @@ export const DashboardContainer = () => {
           valeur={`${stats.depensesPeriode.toFixed(2)} €`}
           couleur="from-red-500 to-pink-600"
           icon={TrendingDown}
-          details={stats.depensesAVenir > 0 ? [
-            { label: 'À venir', value: `${stats.depensesAVenir.toFixed(2)} €` }
-          ] : null}
+          details={[
+            { 
+              label: 'Prévisionnel', 
+              value: `${statsPrevisionnelles.depensesPrevisionnel.toFixed(2)} €` 
+            }
+          ]}
         />
         
         <StatCard
@@ -185,9 +255,12 @@ export const DashboardContainer = () => {
           valeur={`${stats.epargnesPeriode.toFixed(2)} €`}
           couleur="from-purple-500 to-purple-600"
           icon={PiggyBank}
-          details={stats.epargnesAVenir > 0 ? [
-            { label: 'À venir', value: `${stats.epargnesAVenir.toFixed(2)} €` }
-          ] : null}
+          details={[
+            { 
+              label: 'Prévisionnel', 
+              value: `${statsPrevisionnelles.epargnesPrevisionnel.toFixed(2)} €` 
+            }
+          ]}
         />
         
         <StatCard
@@ -195,9 +268,12 @@ export const DashboardContainer = () => {
           valeur={`${(stats.revenusPeriode - stats.depensesPeriode - stats.epargnesPeriode).toFixed(2)} €`}
           couleur="from-indigo-500 to-indigo-600"
           icon={TrendingUp}
-          details={(stats.revenusAVenir > 0 || stats.depensesAVenir > 0 || stats.epargnesAVenir > 0) ? [
-            { label: 'À venir', value: `${stats.soldeAVenir.toFixed(2)} €` }
-          ] : null}
+          details={[
+            { 
+              label: 'Prévisionnel', 
+              value: `${(statsPrevisionnelles.revenusPrevisionnel - statsPrevisionnelles.depensesPrevisionnel - statsPrevisionnelles.epargnesPrevisionnel).toFixed(2)} €` 
+            }
+          ]}
         />
       </div>
 
