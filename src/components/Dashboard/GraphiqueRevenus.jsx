@@ -9,15 +9,22 @@ export const GraphiqueRevenus = () => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     const anneeActuelle = new Date().getFullYear();
     
+    // ✅ HELPER : Normaliser date
+    const normaliserDate = (date) => {
+      const d = new Date(date);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+    
     return mois.map((nom, moisIndex) => {
-      const debutMois = new Date(anneeActuelle, moisIndex, 1);
-      const finMois = new Date(anneeActuelle, moisIndex + 1, 0);
+      // ✅ BORNES DU MOIS normalisées
+      const debutMoisNorm = new Date(anneeActuelle, moisIndex, 1);
+      const finMoisNorm = new Date(anneeActuelle, moisIndex + 1, 0, 23, 59, 59);
       
       // ✅ REVENUS RÉELS du mois (transactions réalisées uniquement)
       const transactionsMois = (transactions || []).filter(t => {
-        const dateT = new Date(t.date);
-        return dateT >= debutMois && 
-               dateT <= finMois && 
+        const dateT = normaliserDate(t.date);
+        return dateT >= debutMoisNorm && 
+               dateT <= finMoisNorm && 
                t.montant > 0 && 
                t.statut === 'realisee';
       });

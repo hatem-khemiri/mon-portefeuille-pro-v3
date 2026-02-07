@@ -43,6 +43,16 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     
     const soldeInitialCompte = compteActuel.soldeInitial !== undefined ? compteActuel.soldeInitial : 0;
     
+    // ✅ HELPER : Normaliser date pour comparaison (évite bug timezone)
+    const normaliserDate = (date) => {
+      const d = new Date(date);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+    
+    const dateDebutNorm = normaliserDate(dateDebut);
+    const dateFinNorm = normaliserDate(dateFin);
+    const dateFinPrevueNorm = normaliserDate(dateFinPrevue);
+    
     const toutesTransactionsRealisees = transactions.filter(t => 
       t.statut === 'realisee' && 
       t.compte === compteActuel.nom &&
@@ -50,22 +60,22 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     );
     
     const transactionsAvantPeriode = toutesTransactionsRealisees.filter(t => 
-      new Date(t.date) < dateDebut
+      normaliserDate(t.date) < dateDebutNorm
     );
     const mouvementsAvantPeriode = transactionsAvantPeriode.reduce((acc, t) => acc + t.montant, 0);
     const soldeDebut = soldeInitialCompte + mouvementsAvantPeriode;
     
     const transactionsPeriode = toutesTransactionsRealisees.filter(t => {
-      const dateT = new Date(t.date);
-      return dateT >= dateDebut && dateT <= dateFin;
+      const dateT = normaliserDate(t.date);
+      return dateT >= dateDebutNorm && dateT <= dateFinNorm;
     });
     
-    // ✅ CORRECTION CRITIQUE : Accepter 'avenir' ET 'a_venir'
+    // ✅ CORRECTION CRITIQUE : Utiliser 'a_venir' (underscore)
     const transactionsAVenir = transactions.filter(t => {
-      const dateT = new Date(t.date);
-      const dansLaPeriode = (t.statut === 'a_venir' || t.statut === 'avenir') && 
-                            dateT >= dateDebut && 
-                            dateT <= dateFinPrevue;
+      const dateT = normaliserDate(t.date);
+      const dansLaPeriode = t.statut === 'a_venir' && 
+                            dateT > dateFinNorm && // ✅ Strictement après aujourd'hui
+                            dateT <= dateFinPrevueNorm;
       
       return dansLaPeriode && (
         t.compte === compteActuel.nom || 

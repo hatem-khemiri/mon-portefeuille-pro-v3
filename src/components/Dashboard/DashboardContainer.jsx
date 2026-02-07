@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { CreditCard, TrendingUp, TrendingDown, PiggyBank, Calendar } from 'lucide-react';
+import { CreditCard, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useStatistiques } from '../../hooks/useStatistiques';
 import { StatCard } from './StatCard';
@@ -19,7 +19,7 @@ export const DashboardContainer = () => {
     budgetPrevisionnel,
     categoriesDepenses,
     categoriesEpargnes,
-    memosBudgetaires // 🆕 AJOUT
+    memosBudgetaires
   } = useFinance();
   
   const [vueTableauBord, setVueTableauBord] = useState('mensuel');
@@ -41,12 +41,12 @@ export const DashboardContainer = () => {
     [dettes]
   );
   
-  // 🆕 MÉMOS BUDGÉTAIRES À VENIR
+  // ✅ MÉMOS BUDGÉTAIRES À VENIR
   const memosAVenir = useMemo(() => {
     const aujourdhui = new Date();
     const finPeriode = vueTableauBord === 'mensuel' 
-      ? new Date(aujourdhui.getFullYear(), aujourdhui.getMonth() + 1, 0) // Fin du mois
-      : new Date(aujourdhui.getFullYear(), 11, 31); // Fin de l'année
+      ? new Date(aujourdhui.getFullYear(), aujourdhui.getMonth() + 1, 0)
+      : new Date(aujourdhui.getFullYear(), 11, 31);
     
     return (memosBudgetaires || [])
       .filter(m => {
@@ -58,14 +58,14 @@ export const DashboardContainer = () => {
   
   const totalMemos = memosAVenir.reduce((sum, m) => sum + m.montant, 0);
   
-  // Dépenses incluant "à venir"
+  // ✅ Dépenses incluant "à venir" (ACCEPTE LES DEUX FORMATS)
   const depensesParCategorie = useMemo(() => {
     const grouped = {};
     transactions
       .filter(t => 
         t.montant < 0 && 
         t.type !== 'transfert' &&
-        (t.statut === 'realisee' || t.statut === 'avenir')
+        (t.statut === 'realisee' || t.statut === 'a_venir' || t.statut === 'avenir') // ✅ ACCEPTE LES DEUX
       )
       .forEach(t => {
         grouped[t.categorie] = (grouped[t.categorie] || 0) + Math.abs(t.montant);
@@ -73,7 +73,7 @@ export const DashboardContainer = () => {
     return Object.entries(grouped).map(([name, value]) => ({ name, value }));
   }, [transactions]);
 
-  // Dépenses réalisées uniquement
+  // ✅ Dépenses réalisées uniquement
   const depensesRealisees = useMemo(() => {
     const grouped = {};
     transactions
@@ -201,7 +201,7 @@ export const DashboardContainer = () => {
         />
       </div>
 
-      {/* 🆕 WIDGET MÉMOS BUDGÉTAIRES */}
+      {/* WIDGET MÉMOS BUDGÉTAIRES */}
       {memosAVenir.length > 0 && (
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">

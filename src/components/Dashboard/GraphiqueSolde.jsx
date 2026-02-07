@@ -9,29 +9,36 @@ export const GraphiqueSolde = () => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     const anneeActuelle = new Date().getFullYear();
     
+    // ✅ HELPER : Normaliser date (évite bug timezone)
+    const normaliserDate = (date) => {
+      const d = new Date(date);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+    
     // ✅ SOLDE INITIAL TOTAL
     const soldeInitial = comptes.reduce((sum, c) => sum + (c.soldeInitial || 0), 0);
     
     return mois.map((nom, moisIndex) => {
-      const finMois = new Date(anneeActuelle, moisIndex + 1, 0);
+      // ✅ FIN DU MOIS normalisée (23h59 évite bug dernier jour)
+      const finMoisNorm = new Date(anneeActuelle, moisIndex + 1, 0, 23, 59, 59);
       
       // ═══════════════════════════════════════════════════════
-      // SOLDE RÉEL = Solde initial + transactions RÉALISÉES jusqu'au mois
+      // SOLDE RÉEL = Solde initial + transactions RÉALISÉES jusqu'au mois (inclus)
       // ═══════════════════════════════════════════════════════
       const transactionsRealisees = (transactions || []).filter(t => {
-        const dateT = new Date(t.date);
-        return dateT <= finMois && t.statut === 'realisee';
+        const dateT = normaliserDate(t.date);
+        return dateT <= finMoisNorm && t.statut === 'realisee';
       });
       
       const mouvementsReels = transactionsRealisees.reduce((sum, t) => sum + t.montant, 0);
       const soldeReel = soldeInitial + mouvementsReels;
       
       // ═══════════════════════════════════════════════════════
-      // SOLDE PRÉVISIONNEL = Solde initial + TOUTES transactions (réalisées + à venir) jusqu'au mois
+      // SOLDE PRÉVISIONNEL = Solde initial + TOUTES transactions (réalisées + à venir) jusqu'au mois (inclus)
       // ═══════════════════════════════════════════════════════
       const toutesTransactions = (transactions || []).filter(t => {
-        const dateT = new Date(t.date);
-        return dateT <= finMois; // ✅ Inclut réalisées ET à venir
+        const dateT = normaliserDate(t.date);
+        return dateT <= finMoisNorm; // ✅ Inclut réalisées ET à venir
       });
       
       const mouvementsPrevus = toutesTransactions.reduce((sum, t) => sum + t.montant, 0);

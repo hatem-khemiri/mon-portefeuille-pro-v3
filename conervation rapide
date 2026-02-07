@@ -1,0 +1,22 @@
+maintenant le problème est que le solde prévu en fin de mois est à 0, alors qu'il devrait être à -1343.
+
+
+
+Explication du contexte : J'ai réinitialisé l'appli, j'ai créé un compte tirelire avec aucune transaction, puis une fois l'onboarding passé j'ai ajouté une transaction de 1343€ sortant en date du 27/02/2026 donc une transaction à venir, c'était parfait, le solde prévu en fin de moi était bien de -1343€. Dès que j'ai passé la transaction en réalisé, sans en changer la date, mon solde prévu en fin de mois est passé à 0. on parle ici des cartes se trouvant en haut de l'écran.
+
+
+
+Par ailleurs, j'ai ajouté une seconde transaction par la suite, une dépense de 657€ en date du 28/02/2026, donc transaction à venir et pourtant le solde est resté à 0€ De plus quand je regarde les dépenses du mois (la carte dépenses du mois), il est à 0 même si les transactions sont catégorisées comme réalisées.
+
+
+
+Le graphique évolution du solde à l'air de fonctionner. mais la donnée "Dépenses prévisionnelles" dans le graphique dépenses prévisionnelles vs réelles ne affiche 0 ! ce qui est faut au regard des dépense à venir.
+
+
+
+Concernant les transactions en fin de mois (le dernier jour du mois), j'ai l'impression qu'elles ne sont pas comptabilisés dans les transaftion du mois.
+
+
+
+Bref pas mal de soucis en termes de calcul. donc revoir les calculs dans un 1er temps avant de coder, et rappelle toi des différentes conditions que nous avons définies !
+
