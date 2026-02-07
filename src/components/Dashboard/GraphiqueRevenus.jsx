@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { useFinance } from '../../contexts/FinanceContext';
 
 export const GraphiqueRevenus = () => {
-  const { transactions, budgetPrevisionnel } = useFinance();
+  const { transactions } = useFinance();
 
   const data = useMemo(() => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -21,7 +21,7 @@ export const GraphiqueRevenus = () => {
       const finMoisNorm = new Date(anneeActuelle, moisIndex + 1, 0, 23, 59, 59);
       
       // ✅ REVENUS RÉELS du mois (transactions réalisées uniquement)
-      const transactionsMois = (transactions || []).filter(t => {
+      const transactionsReellesMois = (transactions || []).filter(t => {
         const dateT = normaliserDate(t.date);
         return dateT >= debutMoisNorm && 
                dateT <= finMoisNorm && 
@@ -29,10 +29,18 @@ export const GraphiqueRevenus = () => {
                t.statut === 'realisee';
       });
       
-      const revenusReels = transactionsMois.reduce((sum, t) => sum + t.montant, 0);
+      const revenusReels = transactionsReellesMois.reduce((sum, t) => sum + t.montant, 0);
       
-      // ✅ REVENUS PRÉVISIONNELS du mois (depuis le budget calculé)
-      const revenusPrev = budgetPrevisionnel?.revenus?.[moisIndex] || 0;
+      // ✅ REVENUS PRÉVISIONNELS du mois (TOUTES transactions : réalisées + à venir)
+      const toutesTransactionsMois = (transactions || []).filter(t => {
+        const dateT = normaliserDate(t.date);
+        return dateT >= debutMoisNorm && 
+               dateT <= finMoisNorm && 
+               t.montant > 0 &&
+               (t.statut === 'realisee' || t.statut === 'a_venir' || t.statut === 'avenir');
+      });
+      
+      const revenusPrev = toutesTransactionsMois.reduce((sum, t) => sum + t.montant, 0);
       
       return {
         mois: nom,
@@ -40,7 +48,7 @@ export const GraphiqueRevenus = () => {
         'Revenus Prévisionnels': Math.round(revenusPrev)
       };
     });
-  }, [transactions, budgetPrevisionnel]);
+  }, [transactions]);
 
   return (
     <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">

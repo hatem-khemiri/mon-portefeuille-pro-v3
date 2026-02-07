@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { useFinance } from '../../contexts/FinanceContext';
 
 export const GraphiqueDepenses = () => {
-  const { transactions, budgetPrevisionnel } = useFinance();
+  const { transactions } = useFinance();
 
   const data = useMemo(() => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -21,7 +21,7 @@ export const GraphiqueDepenses = () => {
       const finMoisNorm = new Date(anneeActuelle, moisIndex + 1, 0, 23, 59, 59);
       
       // ✅ DÉPENSES RÉELLES du mois (transactions réalisées uniquement)
-      const transactionsMois = (transactions || []).filter(t => {
+      const transactionsReellesMois = (transactions || []).filter(t => {
         const dateT = normaliserDate(t.date);
         return dateT >= debutMoisNorm && 
                dateT <= finMoisNorm && 
@@ -29,10 +29,18 @@ export const GraphiqueDepenses = () => {
                t.statut === 'realisee';
       });
       
-      const depensesReelles = Math.abs(transactionsMois.reduce((sum, t) => sum + t.montant, 0));
+      const depensesReelles = Math.abs(transactionsReellesMois.reduce((sum, t) => sum + t.montant, 0));
       
-      // ✅ DÉPENSES PRÉVISIONNELLES du mois (depuis le budget calculé)
-      const depensesPrev = budgetPrevisionnel?.depenses?.[moisIndex] || 0;
+      // ✅ DÉPENSES PRÉVISIONNELLES du mois (TOUTES transactions : réalisées + à venir)
+      const toutesTransactionsMois = (transactions || []).filter(t => {
+        const dateT = normaliserDate(t.date);
+        return dateT >= debutMoisNorm && 
+               dateT <= finMoisNorm && 
+               t.montant < 0 &&
+               (t.statut === 'realisee' || t.statut === 'a_venir' || t.statut === 'avenir');
+      });
+      
+      const depensesPrev = Math.abs(toutesTransactionsMois.reduce((sum, t) => sum + t.montant, 0));
       
       return {
         mois: nom,
@@ -40,7 +48,7 @@ export const GraphiqueDepenses = () => {
         'Dépenses Prévisionnelles': Math.round(depensesPrev)
       };
     });
-  }, [transactions, budgetPrevisionnel]);
+  }, [transactions]);
 
   return (
     <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
