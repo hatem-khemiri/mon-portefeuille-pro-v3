@@ -20,7 +20,7 @@ export const DashboardContainer = () => {
     categoriesDepenses,
     categoriesEpargnes,
     memosBudgetaires,
-    currentUser // ✅ AJOUT
+    currentUser
   } = useFinance();
   
   const [vueTableauBord, setVueTableauBord] = useState('mensuel');
@@ -28,7 +28,7 @@ export const DashboardContainer = () => {
   
   const stats = useStatistiques(transactions, comptes, vueTableauBord, compteSelectionne);
   
-  // ✅ CALCUL DEBUG
+  // ✅ CALCUL DEBUG CORRIGÉ
   const debugInfo = useMemo(() => {
     const aujourdHui = new Date();
     const moisActuel = aujourdHui.getMonth();
@@ -37,10 +37,13 @@ export const DashboardContainer = () => {
     const dateDebut = vueTableauBord === 'mensuel' 
       ? new Date(anneeActuelle, moisActuel, 1)
       : new Date(anneeActuelle, 0, 1);
-    const dateFin = aujourdHui;
-    const dateFinPrevue = vueTableauBord === 'mensuel'
+    
+    // ✅ CORRECTION : dateFin = fin du mois/année (comme useStatistiques)
+    const dateFin = vueTableauBord === 'mensuel'
       ? new Date(anneeActuelle, moisActuel + 1, 0, 23, 59, 59)
       : new Date(anneeActuelle, 11, 31, 23, 59, 59);
+    
+    const dateFinPrevue = dateFin; // Identique maintenant
     
     const compteActuel = compteSelectionne 
       ? comptes.find(c => c.nom === compteSelectionne)
@@ -51,18 +54,26 @@ export const DashboardContainer = () => {
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     };
     
+    const dateDebutNorm = normaliserDate(dateDebut);
+    const dateFinNorm = normaliserDate(dateFin);
+    const aujourdHuiNorm = normaliserDate(aujourdHui);
+    
     const transactionsDuCompte = (transactions || []).filter(t => t.compte === compteActuel?.nom);
     
+    // ✅ TRANSACTIONS RÉALISÉES (jusqu'à FIN du mois/année)
     const transactionsRealiseesPeriode = transactionsDuCompte.filter(t => {
       const dateT = normaliserDate(t.date);
-      return t.statut === 'realisee' && dateT >= normaliserDate(dateDebut) && dateT <= normaliserDate(dateFin);
+      return t.statut === 'realisee' && 
+             dateT >= dateDebutNorm && 
+             dateT <= dateFinNorm; // ✅ Jusqu'à fin période
     });
     
+    // ✅ TRANSACTIONS À VENIR (après aujourd'hui jusqu'à fin période)
     const transactionsAVenirPeriode = transactionsDuCompte.filter(t => {
       const dateT = normaliserDate(t.date);
       return (t.statut === 'a_venir' || t.statut === 'avenir') && 
-             dateT >= normaliserDate(dateDebut) && 
-             dateT <= normaliserDate(dateFinPrevue);
+             dateT > aujourdHuiNorm && 
+             dateT <= dateFinNorm;
     });
     
     return {
@@ -76,7 +87,7 @@ export const DashboardContainer = () => {
     };
   }, [transactions, comptes, vueTableauBord, compteSelectionne]);
   
-  // ✅ RECALCUL PRÉVISIONNEL TOTAL (réalisé + à venir DANS la période)
+  // ✅ RECALCUL PRÉVISIONNEL TOTAL CORRIGÉ
   const statsPrevisionnelles = useMemo(() => {
     const aujourdHui = new Date();
     const moisActuel = aujourdHui.getMonth();
@@ -102,7 +113,7 @@ export const DashboardContainer = () => {
     
     const compteActuel = compteSelectionne 
       ? comptes.find(c => c.nom === compteSelectionne)
-      : comptes.find(c => c.nom === 'Compte Courant' || c.type === 'courant');
+      : comptes.find(c => c.nom === 'Compte Courant' || c.type === 'courant') || comptes[0];
     
     if (!compteActuel) {
       return {
@@ -112,8 +123,8 @@ export const DashboardContainer = () => {
       };
     }
     
-    // TOUTES les transactions de la période (réalisées + à venir)
-    const toutesTransactionsPeriode = transactions.filter(t => {
+    // ✅ TOUTES les transactions de la période (réalisées + à venir)
+    const toutesTransactionsPeriode = (transactions || []).filter(t => {
       const dateT = normaliserDate(t.date);
       const dansLaPeriode = dateT >= dateDebutNorm && dateT <= dateFinPrevueNorm;
       const estValide = (t.statut === 'realisee' || t.statut === 'a_venir' || t.statut === 'avenir');
@@ -121,17 +132,17 @@ export const DashboardContainer = () => {
     });
     
     const revenusPrevisionnel = toutesTransactionsPeriode
-      .filter(t => t.montant > 0)
-      .reduce((acc, t) => acc + t.montant, 0);
+      .filter(t => (t.montant || 0) > 0)
+      .reduce((acc, t) => acc + (t.montant || 0), 0);
     
     const depensesPrevisionnel = Math.abs(toutesTransactionsPeriode
-      .filter(t => t.montant < 0)
-      .reduce((acc, t) => acc + t.montant, 0));
+      .filter(t => (t.montant || 0) < 0)
+      .reduce((acc, t) => acc + (t.montant || 0), 0));
     
     const epargnesPrevisionnel = Math.abs(toutesTransactionsPeriode.filter(t => {
       const compte = comptes.find(c => c.nom === t.compte);
-      return t.montant > 0 && compte && compte.type === 'epargne';
-    }).reduce((acc, t) => acc + t.montant, 0));
+      return (t.montant || 0) > 0 && compte && compte.type === 'epargne';
+    }).reduce((acc, t) => acc + (t.montant || 0), 0));
     
     return {
       revenusPrevisionnel,
@@ -200,7 +211,7 @@ export const DashboardContainer = () => {
 
   return (
     <div className="space-y-6">
-      {/* 🐛 PANNEAU DEBUG TEMPORAIRE */}
+      {/* 🐛 PANNEAU DEBUG CORRIGÉ */}
       <div className="bg-yellow-50 border-4 border-yellow-500 rounded-2xl p-6 font-mono text-xs">
         <h2 className="text-xl font-bold text-yellow-900 mb-3">🐛 DEBUG</h2>
         
@@ -214,15 +225,16 @@ export const DashboardContainer = () => {
           
           <div className="bg-white p-3 rounded">
             <h3 className="font-bold mb-1">📅 Période</h3>
-            <p>{debugInfo.dateDebut?.toLocaleDateString('fr-FR')} → {debugInfo.dateFinPrevue?.toLocaleDateString('fr-FR')}</p>
+            <p>{debugInfo.dateDebut?.toLocaleDateString('fr-FR')} → {debugInfo.dateFin?.toLocaleDateString('fr-FR')}</p>
             <p>Compte: {debugInfo.compteActuel?.nom || 'null'}</p>
+            <p>Solde initial: {debugInfo.compteActuel?.soldeInitial || 0}€</p>
           </div>
           
           <div className="bg-white p-3 rounded">
             <h3 className="font-bold mb-1">✅ Réalisées</h3>
             <p>Nombre: {debugInfo.transactionsRealiseesPeriode.length}</p>
             {debugInfo.transactionsRealiseesPeriode.map((t, i) => (
-              <p key={i}>{t.date}: {t.montant}€</p>
+              <p key={i} className="text-[10px]">{t.date}: {t.montant}€ ({t.description})</p>
             ))}
           </div>
           
@@ -230,17 +242,34 @@ export const DashboardContainer = () => {
             <h3 className="font-bold mb-1">⏳ À venir</h3>
             <p>Nombre: {debugInfo.transactionsAVenirPeriode.length}</p>
             {debugInfo.transactionsAVenirPeriode.map((t, i) => (
-              <p key={i}>{t.date}: {t.montant}€</p>
+              <p key={i} className="text-[10px]">{t.date}: {t.montant}€ ({t.description})</p>
             ))}
           </div>
           
           <div className="bg-white p-3 rounded col-span-2">
             <h3 className="font-bold mb-1">💰 Stats</h3>
-            <p>Solde actuel: {stats.soldeActuel}€</p>
-            <p>Revenus période: {stats.revenusPeriode}€</p>
-            <p>Dépenses période: {stats.depensesPeriode}€</p>
-            <p>Revenus prévi: {statsPrevisionnelles.revenusPrevisionnel}€</p>
-            <p>Dépenses prévi: {statsPrevisionnelles.depensesPrevisionnel}€</p>
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div>
+                <p className="font-semibold">useStatistiques:</p>
+                <p>Solde actuel: {stats.soldeActuel}€</p>
+                <p>Revenus période: {stats.revenusPeriode}€</p>
+                <p>Dépenses période: {stats.depensesPeriode}€</p>
+              </div>
+              <div>
+                <p className="font-semibold">statsPrevisionnelles:</p>
+                <p>Revenus prévi: {statsPrevisionnelles.revenusPrevisionnel}€</p>
+                <p>Dépenses prévi: {statsPrevisionnelles.depensesPrevisionnel}€</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-red-50 p-3 rounded col-span-2">
+            <h3 className="font-bold mb-1 text-red-700">🔍 Toutes les transactions</h3>
+            {(transactions || []).map((t, i) => (
+              <p key={i} className="text-[10px] border-b pb-1">
+                {t.date} | {t.montant}€ | {t.description} | compte: {t.compte} | statut: {t.statut}
+              </p>
+            ))}
           </div>
         </div>
       </div>
@@ -368,16 +397,14 @@ export const DashboardContainer = () => {
         />
       </div>
 
-      {/* Suite du code identique... */}
-      
       {memosAVenir.length > 0 && (
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-2xl p-6">
-          {/* ... code mémos ... */}
+          {/* ... code mémos identique ... */}
         </div>
       )}
 
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-2xl p-6">
-        {/* ... code bandeau info ... */}
+        {/* ... code bandeau info identique ... */}
       </div>
 
       <div className="pt-4">
