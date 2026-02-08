@@ -10,11 +10,11 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     
     if (vueTableauBord === 'mensuel') {
       dateDebut = new Date(anneeActuelle, moisActuel, 1);
-      dateFin = aujourdHui;
+      dateFin = new Date(anneeActuelle, moisActuel + 1, 0, 23, 59, 59); // ✅ FIN DU MOIS, pas aujourd'hui !
       dateFinPrevue = new Date(anneeActuelle, moisActuel + 1, 0, 23, 59, 59);
     } else {
       dateDebut = new Date(anneeActuelle, 0, 1);
-      dateFin = aujourdHui;
+      dateFin = new Date(anneeActuelle, 11, 31, 23, 59, 59); // ✅ FIN DE L'ANNÉE
       dateFinPrevue = new Date(anneeActuelle, 11, 31, 23, 59, 59);
     }
     
@@ -71,6 +71,7 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     const dateDebutNorm = normaliserDate(dateDebut);
     const dateFinNorm = normaliserDate(dateFin);
     const dateFinPrevueNorm = normaliserDate(dateFinPrevue);
+    const aujourdHuiNorm = normaliserDate(aujourdHui);
     
     // ═══════════════════════════════════════════════════════
     // CALCUL SOLDE DÉBUT DE PÉRIODE
@@ -88,11 +89,11 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     const soldeDebut = soldeInitialCompte + mouvementsAvantPeriode;
     
     // ═══════════════════════════════════════════════════════
-    // PÉRIODE RÉALISÉE (jusqu'à aujourd'hui)
+    // PÉRIODE RÉALISÉE (transactions réalisées de la période complète)
     // ═══════════════════════════════════════════════════════
     const transactionsPeriode = toutesTransactionsRealisees.filter(t => {
       const dateT = normaliserDate(t.date);
-      return dateT >= dateDebutNorm && dateT <= dateFinNorm;
+      return dateT >= dateDebutNorm && dateT <= dateFinNorm; // ✅ Jusqu'à FIN du mois/année
     });
     
     const revenusPeriode = transactionsPeriode
@@ -112,12 +113,12 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     const soldeActuel = soldeDebut + totalMouvementsPeriode;
     
     // ═══════════════════════════════════════════════════════
-    // TRANSACTIONS À VENIR (après aujourd'hui, jusqu'à fin période prévue)
+    // TRANSACTIONS À VENIR (après aujourd'hui, jusqu'à fin période)
     // ═══════════════════════════════════════════════════════
     const transactionsAVenir = transactions.filter(t => {
       const dateT = normaliserDate(t.date);
       const estAVenir = (t.statut === 'a_venir' || t.statut === 'avenir');
-      const dansLaPeriode = dateT > dateFinNorm && dateT <= dateFinPrevueNorm;
+      const dansLaPeriode = dateT > aujourdHuiNorm && dateT <= dateFinPrevueNorm; // ✅ Après AUJOURD'HUI
       
       return estAVenir && dansLaPeriode && t.compte === compteActuel.nom;
     });
