@@ -3,6 +3,7 @@ import { FinanceProvider, useFinance } from './contexts/FinanceContext';
 import { getCurrentUser, setCurrentUser as saveCurrentUser } from './utils/storage';
 import { useChargesFixes } from './hooks/useChargesFixes';
 import { useConfirmationTransactions } from './hooks/useConfirmationTransactions';
+import { usePrevisionnelCalculations } from './hooks/usePrevisionnelCalculations'; // ✅ AJOUT
 import { Notification } from './components/Common/Notification';
 import { ConfirmationTransactionsModal } from './components/Common/ConfirmationTransactionsModal';
 import { Header } from './components/Layout/Header';
@@ -51,6 +52,9 @@ function AppContent() {
 
   const { genererTransactionsChargesFixes } = useChargesFixes();
   const { transactionsAConfirmer, marquerRealisee, reporter, annuler } = useConfirmationTransactions();
+  
+  // ✅ AJOUT : Calcul automatique du prévisionnel
+  usePrevisionnelCalculations();
 
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState('login');

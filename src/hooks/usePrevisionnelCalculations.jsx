@@ -1,9 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useFinance } from '../contexts/FinanceContext';
 
 export const usePrevisionnelCalculations = () => {
   const {
+    transactions,
     chargesFixes,
+    memosBudgetaires,
     budgetPrevisionnel,
     setBudgetPrevisionnel,
     dateCreationCompte,
@@ -22,17 +24,65 @@ export const usePrevisionnelCalculations = () => {
     return 0;
   }, [dateCreationCompte]);
 
+  // ✅ RECALCUL AUTOMATIQUE à chaque changement de transactions
+  useEffect(() => {
+    calculerPrevisionnelAutomatique();
+  }, [transactions, chargesFixes, memosBudgetaires]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Calcul automatique du budget prévisionnel ──
-  // acceptedRecurrences : tableau de récurrences détectées que l'utilisateur a acceptées
-  //   chaque élément ressemble à : { nom, montant, categorie, compte, frequence }
   const calculerPrevisionnelAutomatique = (acceptedRecurrences = []) => {
+    const anneeActuelle = new Date().getFullYear();
+    
     const nouveauBudget = {
       revenus:  Array(12).fill(0),
       epargnes: Array(12).fill(0),
-      factures: Array(12).fill(0),  // ← TOUJOURS 0 désormais (conservé pour compat)
-      depenses: Array(12).fill(0)   // ← factures + dépenses fusionnées ici
+      factures: Array(12).fill(0),
+      depenses: Array(12).fill(0)
     };
 
+    // ═══════════════════════════════════════════════════════
+    // 1. COMPTER LES TRANSACTIONS RÉALISÉES + À VENIR
+    // ═══════════════════════════════════════════════════════
+    (transactions || []).forEach(t => {
+      const dateT = new Date(t.date);
+      
+      // Seulement l'année en cours
+      if (dateT.getFullYear() !== anneeActuelle) return;
+      
+      const moisIndex = dateT.getMonth();
+      const montant = Math.abs(t.montant || 0);
+      
+      // Déterminer la catégorie
+      const categorie = t.categorie || '';
+      
+      // REVENUS
+      if (t.montant > 0) {
+        if (categorie === 'Épargne' || categorie === 'Épargne de précaution' ||
+            categorie === 'Projet' || categorie === 'Retraite' ||
+            categorie === 'Investissement' || categorie === 'Autres épargnes') {
+          nouveauBudget.epargnes[moisIndex] += montant;
+        } else {
+          nouveauBudget.revenus[moisIndex] += montant;
+        }
+      }
+      
+      // DÉPENSES
+      if (t.montant < 0) {
+        if (categorie === 'Épargne' || categorie === 'Épargne de précaution' ||
+            categorie === 'Projet' || categorie === 'Retraite' ||
+            categorie === 'Investissement' || categorie === 'Autres épargnes') {
+          nouveauBudget.epargnes[moisIndex] += montant;
+        } else {
+          nouveauBudget.depenses[moisIndex] += montant;
+        }
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════
+    // 2. AJOUTER LES CHARGES FIXES (pour mois futurs non générés)
+    // ═══════════════════════════════════════════════════════
+    const moisActuel = new Date().getMonth();
+    
     // Combiner charges fixes officielles + récurrences acceptées
     const toutes = [
       ...chargesFixes,
@@ -50,22 +100,53 @@ export const usePrevisionnelCalculations = () => {
     toutes.forEach(charge => {
       const montantAbs = Math.abs(charge.montant);
 
-      // ── Déterminer dans quelle ligne elle va ──
-      if (charge.type === 'revenu' || charge.categorie === 'Salaire' || charge.categorie === 'Prime' ||
-          charge.categorie === 'Freelance' || charge.categorie === 'Investissements' ||
-          charge.categorie === 'Autres revenus') {
-        // → revenus
-        appliquerFrequence(nouveauBudget.revenus, montantAbs, charge.frequence, moisDebutAffichage);
-
-      } else if (charge.categorie === 'Épargne' || charge.categorie === 'Épargne de précaution' ||
-                 charge.categorie === 'Projet' || charge.categorie === 'Retraite' ||
-                 charge.categorie === 'Investissement' || charge.categorie === 'Autres épargnes') {
-        // → epargnes
-        appliquerFrequence(nouveauBudget.epargnes, montantAbs, charge.frequence, moisDebutAffichage);
-
-      } else {
-        // → TOUT le reste va dans depenses (factures + anciennes dépenses fusionnées)
-        appliquerFrequence(nouveauBudget.depenses, montantAbs, charge.frequence, moisDebutAffichage);
+      // Vérifier pour chaque mois si une transaction existe déjà
+      for (let m = moisActuel; m < 12; m++) {
+        // Vérifier si une transaction générée existe déjà
+        const transactionExiste = (transactions || []).some(t => {
+          const dateT = new Date(t.date);
+          return dateT.getFullYear() === anneeActuelle &&
+                 dateT.getMonth() === m &&
+                 t.isFromChargeFixe &&
+                 t.chargeFixeId === charge.id;
+        });
+        
+        // Si pas de transaction générée, ajouter au prévisionnel
+        if (!transactionExiste) {
+          // Déterminer dans quelle ligne elle va
+          if (charge.type === 'revenu' || charge.categorie === 'Salaire' || 
+              charge.categorie === 'Prime' || charge.categorie === 'Freelance' || 
+              charge.categorie === 'Investissements' || charge.categorie === 'Autres revenus') {
+            // Appliquer fréquence
+            if (charge.frequence === 'mensuelle') {
+              nouveauBudget.revenus[m] += montantAbs;
+            } else if (charge.frequence === 'trimestrielle' && m % 3 === 0) {
+              nouveauBudget.revenus[m] += montantAbs;
+            } else if (charge.frequence === 'annuelle' && m === 0) {
+              nouveauBudget.revenus[m] += montantAbs;
+            }
+          } else if (charge.categorie === 'Épargne' || charge.categorie === 'Épargne de précaution' ||
+                     charge.categorie === 'Projet' || charge.categorie === 'Retraite' ||
+                     charge.categorie === 'Investissement' || charge.categorie === 'Autres épargnes') {
+            // Appliquer fréquence
+            if (charge.frequence === 'mensuelle') {
+              nouveauBudget.epargnes[m] += montantAbs;
+            } else if (charge.frequence === 'trimestrielle' && m % 3 === 0) {
+              nouveauBudget.epargnes[m] += montantAbs;
+            } else if (charge.frequence === 'annuelle' && m === 0) {
+              nouveauBudget.epargnes[m] += montantAbs;
+            }
+          } else {
+            // Dépenses
+            if (charge.frequence === 'mensuelle') {
+              nouveauBudget.depenses[m] += montantAbs;
+            } else if (charge.frequence === 'trimestrielle' && m % 3 === 0) {
+              nouveauBudget.depenses[m] += montantAbs;
+            } else if (charge.frequence === 'annuelle' && m === 0) {
+              nouveauBudget.depenses[m] += montantAbs;
+            }
+          }
+        }
       }
     });
 
@@ -83,7 +164,6 @@ export const usePrevisionnelCalculations = () => {
     return mois.map((nom, i) => ({
       mois: nom,
       revenus:  budgetPrevisionnel.revenus[i] || 0,
-      // factures + depenses fusionnées en une seule valeur "depenses"
       depenses: (budgetPrevisionnel.factures[i] || 0) + (budgetPrevisionnel.depenses[i] || 0),
       epargnes: budgetPrevisionnel.epargnes[i] || 0
     }));
@@ -95,20 +175,3 @@ export const usePrevisionnelCalculations = () => {
     moisDebutAffichage
   };
 };
-
-// ─────────────────────────────────────────────────────────
-// Helper : applique un montant selon la fréquence sur les mois concernés
-// ─────────────────────────────────────────────────────────
-function appliquerFrequence(arrayMois, montant, frequence, moisDebut = 0) {
-  for (let m = moisDebut; m < 12; m++) {
-    if (frequence === 'mensuelle') {
-      arrayMois[m] += montant;
-    } else if (frequence === 'trimestrielle') {
-      // janvier (0), avril (3), juillet (6), octobre (9)
-      if (m % 3 === 0) arrayMois[m] += montant;
-    } else if (frequence === 'annuelle') {
-      // janvier uniquement
-      if (m === 0) arrayMois[m] += montant;
-    }
-  }
-}
