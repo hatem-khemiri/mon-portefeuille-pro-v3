@@ -73,10 +73,6 @@ export const ComptesEtBanque = () => {
     }
   };
 
-  const bankConnection = localStorage.getItem(`bank_connection_${currentUser}`);
-  const isBankConnected = !!bankConnection;
-  const connectedBankName = isBankConnected ? JSON.parse(bankConnection).bankName : null;
-
   const handleDisconnectBank = () => {
     if (confirm('⚠️ Déconnecter votre banque ? Cela supprimera toutes les transactions synchronisées et la connexion.')) {
       const updatedTransactions = transactions.filter(t => !t.isSynced && !t.bridgeId);
@@ -108,34 +104,7 @@ export const ComptesEtBanque = () => {
   return (
     <div className="space-y-6">
       {/* ═══ SYNCHRONISATION BANCAIRE ═══ */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          🏦 Synchronisation bancaire
-        </h3>
-        
-        {isBankConnected ? (
-          <div className="space-y-4">
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-green-700 mb-1">✅ Banque connectée</p>
-                  <p className="text-lg font-bold text-green-900">{connectedBankName}</p>
-                </div>
-                <button
-                  onClick={handleDisconnectBank}
-                  className="px-4 py-2 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-all text-sm"
-                >
-                  Déconnecter
-                </button>
-              </div>
-            </div>
-            
-            <BankConnection />
-          </div>
-        ) : (
-          <BankConnection />
-        )}
-      </div>
+      <BankConnection onDisconnect={handleDisconnectBank} />
 
       {/* ═══ MES COMPTES ═══ */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">

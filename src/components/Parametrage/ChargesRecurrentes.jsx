@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { usePrevisionnel } from '../../hooks/usePrevisionnel';
 import { useChargesFixes } from '../../hooks/useChargesFixes';
-import { Plus, Edit2, Trash2, X, Check, Calendar, Euro, Tag, Building2, Save } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Check, Calendar, Euro, Tag, Building2, Save, TrendingUp, TrendingDown } from 'lucide-react';
 
 export const ChargesRecurrentes = () => {
   const { chargesFixes, comptes } = useFinance();
@@ -22,12 +22,10 @@ export const ChargesRecurrentes = () => {
     jourMois: 1
   });
 
-  // Récurrences visibles (non ignorées)
   const visibleRecurrences = recurrencesNouvellesUniques.filter(
     r => !dismissedIds.includes(r.id)
   );
 
-  // Éditer une récurrence avant de l'ajouter
   const handleEditRecurrence = (recurrence) => {
     setEditingRecurrenceId(recurrence.id);
     setFormData({
@@ -40,7 +38,6 @@ export const ChargesRecurrentes = () => {
     });
   };
 
-  // Sauvegarder la récurrence éditée et l'ajouter
   const handleSaveRecurrence = (recurrenceId) => {
     const newCharge = {
       nom: formData.nom,
@@ -64,7 +61,6 @@ export const ChargesRecurrentes = () => {
     });
   };
 
-  // Ajouter une récurrence sans modification
   const handleAddRecurrence = (recurrence) => {
     const newCharge = {
       nom: recurrence.nom,
@@ -79,7 +75,6 @@ export const ChargesRecurrentes = () => {
     setDismissedIds(prev => [...prev, recurrence.id]);
   };
 
-  // Ignorer une récurrence
   const handleDismissRecurrence = (recurrenceId) => {
     setDismissedIds(prev => [...prev, recurrenceId]);
     if (editingRecurrenceId === recurrenceId) {
@@ -87,7 +82,6 @@ export const ChargesRecurrentes = () => {
     }
   };
 
-  // Ajouter manuellement
   const handleAddManual = () => {
     if (!formData.nom || !formData.montant) {
       alert('❌ Veuillez remplir au minimum le nom et le montant');
@@ -99,7 +93,6 @@ export const ChargesRecurrentes = () => {
       montant: parseFloat(formData.montant)
     });
 
-    // Reset form
     setFormData({
       nom: '',
       montant: '',
@@ -111,7 +104,6 @@ export const ChargesRecurrentes = () => {
     setShowAddForm(false);
   };
 
-  // Modifier une charge existante
   const handleEditCharge = (charge) => {
     setEditingChargeId(charge.id);
     setFormData({
@@ -124,7 +116,6 @@ export const ChargesRecurrentes = () => {
     });
   };
 
-  // Sauvegarder modification d'une charge
   const handleSaveCharge = () => {
     updateChargeFixe(editingChargeId, {
       ...formData,
@@ -141,7 +132,6 @@ export const ChargesRecurrentes = () => {
     });
   };
 
-  // Supprimer
   const handleDelete = (id) => {
     if (confirm('❓ Supprimer cette charge/revenu fixe ?')) {
       deleteChargeFixe(id);
@@ -194,7 +184,6 @@ export const ChargesRecurrentes = () => {
                 className="bg-white border-2 border-amber-200 rounded-xl p-4 hover:shadow-md transition-all"
               >
                 {editingRecurrenceId === recurrence.id ? (
-                  // MODE ÉDITION
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -257,10 +246,15 @@ export const ChargesRecurrentes = () => {
                     </div>
                   </div>
                 ) : (
-                  // MODE AFFICHAGE
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h4 className="font-bold text-gray-800 mb-2">{recurrence.nom}</h4>
+                      {/* ✅ AJOUT : Signe + ou - devant le nom */}
+                      <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                        <span className={`text-2xl font-bold ${recurrence.montant >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {recurrence.montant >= 0 ? '+' : '−'}
+                        </span>
+                        {recurrence.nom}
+                      </h4>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(recurrence.frequence)}`}>
                           📅 {recurrence.frequence}
@@ -271,15 +265,29 @@ export const ChargesRecurrentes = () => {
                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
                           🏦 {recurrence.compte}
                         </span>
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg">
+                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg">
                           🔁 {recurrence.nombreOccurrences} mois détectés
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 ml-4">
                       <div className="text-right">
+                        <div className="flex items-center gap-2 mb-1 justify-end">
+                          {recurrence.montant >= 0 ? (
+                            <div className="bg-green-100 rounded-full p-1">
+                              <TrendingUp size={16} className="text-green-600" />
+                            </div>
+                          ) : (
+                            <div className="bg-red-100 rounded-full p-1">
+                              <TrendingDown size={16} className="text-red-600" />
+                            </div>
+                          )}
+                          <span className="text-xs font-medium text-gray-600">
+                            {recurrence.montant >= 0 ? 'Revenu' : 'Dépense'}
+                          </span>
+                        </div>
                         <p className={`text-xl font-bold ${recurrence.montant < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {recurrence.montant.toFixed(2)} €
+                          {recurrence.montant >= 0 ? '+' : ''}{recurrence.montant.toFixed(2)} €
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -458,7 +466,6 @@ export const ChargesRecurrentes = () => {
                 className="bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
               >
                 {editingChargeId === charge.id ? (
-                  // Mode édition
                   <div className="space-y-3">
                     <div className="grid grid-cols-3 gap-3">
                       <input
@@ -499,10 +506,15 @@ export const ChargesRecurrentes = () => {
                     </div>
                   </div>
                 ) : (
-                  // Mode affichage
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h4 className="font-bold text-gray-800 mb-2">{charge.nom}</h4>
+                      {/* ✅ AJOUT : Signe + ou - devant le nom */}
+                      <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                        <span className={`text-2xl font-bold ${charge.montant >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {charge.montant >= 0 ? '+' : '−'}
+                        </span>
+                        {charge.nom}
+                      </h4>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(charge.frequence)}`}>
                           📅 {charge.frequence}
@@ -518,9 +530,25 @@ export const ChargesRecurrentes = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-4 ml-4">
-                      <p className={`text-2xl font-bold ${charge.montant < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {charge.montant.toFixed(2)} €
-                      </p>
+                      <div className="text-right">
+                        <div className="flex items-center gap-2 mb-1 justify-end">
+                          {charge.montant >= 0 ? (
+                            <div className="bg-green-100 rounded-full p-1">
+                              <TrendingUp size={16} className="text-green-600" />
+                            </div>
+                          ) : (
+                            <div className="bg-red-100 rounded-full p-1">
+                              <TrendingDown size={16} className="text-red-600" />
+                            </div>
+                          )}
+                          <span className="text-xs font-medium text-gray-600">
+                            {charge.montant >= 0 ? 'Revenu' : 'Dépense'}
+                          </span>
+                        </div>
+                        <p className={`text-2xl font-bold ${charge.montant < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {charge.montant >= 0 ? '+' : ''}{charge.montant.toFixed(2)} €
+                        </p>
+                      </div>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleEditCharge(charge)}
@@ -549,8 +577,9 @@ export const ChargesRecurrentes = () => {
         <h3 className="font-bold text-blue-900 mb-3">💡 Comment ça marche ?</h3>
         <ul className="space-y-2 text-sm text-blue-800">
           <li>• <strong>Récurrences détectées :</strong> Analysées automatiquement depuis vos transactions bancaires synchronisées</li>
-          <li>• <strong>Montants positifs :</strong> Revenus récurrents (salaires, primes, etc.)</li>
-          <li>• <strong>Montants négatifs :</strong> Charges récurrentes (loyer, abonnements, etc.)</li>
+          <li>• <strong>Signe + ou − :</strong> Indique immédiatement s'il s'agit d'un revenu (+) ou d'une dépense (−)</li>
+          <li>• <strong>Revenus :</strong> Affichés avec icône ↗️ verte et signe + (montants positifs)</li>
+          <li>• <strong>Dépenses :</strong> Affichés avec icône ↘️ rouge et signe − (montants négatifs)</li>
           <li>• <strong>Modifier avant d'ajouter :</strong> Cliquez sur ✏️ pour ajuster les détails d'une récurrence détectée</li>
           <li>• <strong>Calcul automatique :</strong> Utilisées dans le mode "Automatique" du Prévisionnel</li>
         </ul>

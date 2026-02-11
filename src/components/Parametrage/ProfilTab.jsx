@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Calendar, Trash2, RefreshCw, FileText } from 'lucide-react';
+import { User, Calendar, Trash2, RefreshCw, FileText, Lock } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { deleteUserAccount } from '../../utils/storage';
 
@@ -17,6 +17,12 @@ export const ProfilTab = ({ onExport, onLogout }) => {
   
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   const handleReset = () => {
     setComptes([]);
@@ -72,6 +78,50 @@ export const ProfilTab = ({ onExport, onLogout }) => {
     onLogout();
   };
 
+  const handlePasswordChange = () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      alert('❌ Veuillez remplir tous les champs');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      alert('❌ Les nouveaux mots de passe ne correspondent pas');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      alert('❌ Le nouveau mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    // Vérifier le mot de passe actuel
+    const securityData = localStorage.getItem(`security_${currentUser}`);
+    if (!securityData) {
+      alert('❌ Erreur : données de sécurité introuvables');
+      return;
+    }
+
+    const { password: currentStoredPassword } = JSON.parse(securityData);
+    
+    if (passwordForm.currentPassword !== currentStoredPassword) {
+      alert('❌ Mot de passe actuel incorrect');
+      return;
+    }
+
+    // Mettre à jour le mot de passe
+    localStorage.setItem(`security_${currentUser}`, JSON.stringify({
+      password: passwordForm.newPassword
+    }));
+
+    alert('✅ Mot de passe modifié avec succès !');
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setShowPasswordChange(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* INFORMATIONS COMPTE */}
@@ -110,6 +160,80 @@ export const ProfilTab = ({ onExport, onLogout }) => {
         <h3 className="text-xl font-bold text-gray-800 mb-6">Actions</h3>
         
         <div className="space-y-3">
+          {/* Modifier mot de passe */}
+          <button
+            onClick={() => setShowPasswordChange(!showPasswordChange)}
+            className="w-full py-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-medium hover:from-purple-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+          >
+            <Lock size={20} />
+            Modifier le mot de passe
+          </button>
+
+          {showPasswordChange && (
+            <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
+              <h4 className="font-bold text-purple-900 mb-4">🔒 Changer le mot de passe</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mot de passe actuel
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nouveau mot de passe
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirmer le nouveau mot de passe
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handlePasswordChange}
+                    className="flex-1 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-all font-medium"
+                  >
+                    ✓ Confirmer
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowPasswordChange(false);
+                      setPasswordForm({
+                        currentPassword: '',
+                        newPassword: '',
+                        confirmPassword: ''
+                      });
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Export rapport */}
           <button
             onClick={onExport}
