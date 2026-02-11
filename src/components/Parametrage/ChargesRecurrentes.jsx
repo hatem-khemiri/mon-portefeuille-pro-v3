@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { usePrevisionnel } from '../../hooks/usePrevisionnel';
 import { useChargesFixes } from '../../hooks/useChargesFixes';
-import { Plus, Edit2, Trash2, X, Check, Calendar, Euro, Tag, Building2, Save, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Check, Calendar, Euro, Tag, Building2, Save } from 'lucide-react';
 
 export const ChargesRecurrentes = () => {
   const { chargesFixes, comptes } = useFinance();
@@ -26,11 +26,17 @@ export const ChargesRecurrentes = () => {
     r => !dismissedIds.includes(r.id)
   );
 
+  // ✅ HELPER : Déterminer si une catégorie est un revenu
+  const isRevenu = (categorie) => {
+    const categoriesRevenus = ['Salaire', 'Prime', 'Freelance', 'Investissements', 'Autres revenus'];
+    return categoriesRevenus.includes(categorie);
+  };
+
   const handleEditRecurrence = (recurrence) => {
     setEditingRecurrenceId(recurrence.id);
     setFormData({
       nom: recurrence.nom,
-      montant: recurrence.montant.toString(),
+      montant: Math.abs(recurrence.montant).toString(),
       categorie: recurrence.categorie,
       frequence: recurrence.frequence.toLowerCase(),
       compte: recurrence.compte,
@@ -39,9 +45,12 @@ export const ChargesRecurrentes = () => {
   };
 
   const handleSaveRecurrence = (recurrenceId) => {
+    const montantBase = parseFloat(formData.montant);
+    const montantFinal = isRevenu(formData.categorie) ? Math.abs(montantBase) : -Math.abs(montantBase);
+    
     const newCharge = {
       nom: formData.nom,
-      montant: parseFloat(formData.montant),
+      montant: montantFinal,
       categorie: formData.categorie,
       frequence: formData.frequence,
       compte: formData.compte,
@@ -62,9 +71,12 @@ export const ChargesRecurrentes = () => {
   };
 
   const handleAddRecurrence = (recurrence) => {
+    const montantBase = Math.abs(recurrence.montant);
+    const montantFinal = isRevenu(recurrence.categorie) ? montantBase : -montantBase;
+    
     const newCharge = {
       nom: recurrence.nom,
-      montant: recurrence.montant,
+      montant: montantFinal,
       categorie: recurrence.categorie,
       frequence: recurrence.frequence.toLowerCase(),
       compte: recurrence.compte,
@@ -88,9 +100,12 @@ export const ChargesRecurrentes = () => {
       return;
     }
 
+    const montantBase = parseFloat(formData.montant);
+    const montantFinal = isRevenu(formData.categorie) ? Math.abs(montantBase) : -Math.abs(montantBase);
+
     addChargeFixe({
       ...formData,
-      montant: parseFloat(formData.montant)
+      montant: montantFinal
     });
 
     setFormData({
@@ -108,7 +123,7 @@ export const ChargesRecurrentes = () => {
     setEditingChargeId(charge.id);
     setFormData({
       nom: charge.nom,
-      montant: charge.montant.toString(),
+      montant: Math.abs(charge.montant).toString(),
       categorie: charge.categorie,
       frequence: charge.frequence,
       compte: charge.compte,
@@ -117,9 +132,12 @@ export const ChargesRecurrentes = () => {
   };
 
   const handleSaveCharge = () => {
+    const montantBase = parseFloat(formData.montant);
+    const montantFinal = isRevenu(formData.categorie) ? Math.abs(montantBase) : -Math.abs(montantBase);
+    
     updateChargeFixe(editingChargeId, {
       ...formData,
-      montant: parseFloat(formData.montant)
+      montant: montantFinal
     });
     setEditingChargeId(null);
     setFormData({
@@ -178,145 +196,138 @@ export const ChargesRecurrentes = () => {
           </div>
 
           <div className="space-y-3">
-            {visibleRecurrences.map((recurrence) => (
-              <div
-                key={recurrence.id}
-                className="bg-white border-2 border-amber-200 rounded-xl p-4 hover:shadow-md transition-all"
-              >
-                {editingRecurrenceId === recurrence.id ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
-                        <input
-                          type="text"
-                          value={formData.nom}
-                          onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Montant (€)</label>
-                        <input
-                          type="number"
-                          value={formData.montant}
-                          onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
-                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Catégorie</label>
-                        <select
-                          value={formData.categorie}
-                          onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
-                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
-                        >
-                          {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Fréquence</label>
-                        <select
-                          value={formData.frequence}
-                          onChange={(e) => setFormData({ ...formData, frequence: e.target.value })}
-                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
-                        >
-                          {frequences.map(freq => (
-                            <option key={freq} value={freq}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleSaveRecurrence(recurrence.id)}
-                        className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium flex items-center justify-center gap-1"
-                      >
-                        <Save size={16} />
-                        Enregistrer et Ajouter
-                      </button>
-                      <button
-                        onClick={() => setEditingRecurrenceId(null)}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
-                      >
-                        Annuler
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      {/* ✅ AJOUT : Signe + ou - devant le nom */}
-                      <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                        <span className={`text-2xl font-bold ${recurrence.montant >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {recurrence.montant >= 0 ? '+' : '−'}
-                        </span>
-                        {recurrence.nom}
-                      </h4>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(recurrence.frequence)}`}>
-                          📅 {recurrence.frequence}
-                        </span>
-                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg">
-                          🏷️ {recurrence.categorie}
-                        </span>
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
-                          🏦 {recurrence.compte}
-                        </span>
-                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg">
-                          🔁 {recurrence.nombreOccurrences} mois détectés
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 ml-4">
-                      <div className="text-right">
-                        <div className="flex items-center gap-2 mb-1 justify-end">
-                          {recurrence.montant >= 0 ? (
-                            <div className="bg-green-100 rounded-full p-1">
-                              <TrendingUp size={16} className="text-green-600" />
-                            </div>
-                          ) : (
-                            <div className="bg-red-100 rounded-full p-1">
-                              <TrendingDown size={16} className="text-red-600" />
-                            </div>
-                          )}
-                          <span className="text-xs font-medium text-gray-600">
-                            {recurrence.montant >= 0 ? 'Revenu' : 'Dépense'}
-                          </span>
+            {visibleRecurrences.map((recurrence) => {
+              const estRevenu = isRevenu(recurrence.categorie);
+              const montantAbs = Math.abs(recurrence.montant);
+              
+              return (
+                <div
+                  key={recurrence.id}
+                  className="bg-white border-2 border-amber-200 rounded-xl p-4 hover:shadow-md transition-all"
+                >
+                  {editingRecurrenceId === recurrence.id ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
+                          <input
+                            type="text"
+                            value={formData.nom}
+                            onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                            className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                          />
                         </div>
-                        <p className={`text-xl font-bold ${recurrence.montant < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {recurrence.montant >= 0 ? '+' : ''}{recurrence.montant.toFixed(2)} €
-                        </p>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Montant (€)</label>
+                          <input
+                            type="number"
+                            value={formData.montant}
+                            onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
+                            className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Catégorie</label>
+                          <select
+                            value={formData.categorie}
+                            onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
+                            className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                          >
+                            {categories.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Fréquence</label>
+                          <select
+                            value={formData.frequence}
+                            onChange={(e) => setFormData({ ...formData, frequence: e.target.value })}
+                            className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                          >
+                            {frequences.map(freq => (
+                              <option key={freq} value={freq}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEditRecurrence(recurrence)}
-                          className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
-                          title="Modifier avant d'ajouter"
+                          onClick={() => handleSaveRecurrence(recurrence.id)}
+                          className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium flex items-center justify-center gap-1"
                         >
-                          <Edit2 size={16} />
+                          <Save size={16} />
+                          Enregistrer et Ajouter
                         </button>
                         <button
-                          onClick={() => handleAddRecurrence(recurrence)}
-                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex items-center gap-1 text-sm font-medium"
+                          onClick={() => setEditingRecurrenceId(null)}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
                         >
-                          <Check size={16} />
-                          Ajouter
-                        </button>
-                        <button
-                          onClick={() => handleDismissRecurrence(recurrence.id)}
-                          className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-all"
-                        >
-                          <X size={16} />
+                          Annuler
                         </button>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                          <span className={`text-2xl font-bold ${estRevenu ? 'text-green-600' : 'text-red-600'}`}>
+                            {estRevenu ? '+' : '−'}
+                          </span>
+                          {recurrence.nom}
+                        </h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(recurrence.frequence)}`}>
+                            📅 {recurrence.frequence}
+                          </span>
+                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg">
+                            🏷️ {recurrence.categorie}
+                          </span>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
+                            🏦 {recurrence.compte}
+                          </span>
+                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg">
+                            🔁 {recurrence.nombreOccurrences} mois détectés
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 ml-4">
+                        <div className="text-right">
+                          <p className={`text-xs font-medium mb-1 ${estRevenu ? 'text-green-700' : 'text-red-700'}`}>
+                            {estRevenu ? 'Revenu' : 'Dépense'}
+                          </p>
+                          <p className={`text-xl font-bold ${estRevenu ? 'text-green-600' : 'text-red-600'}`}>
+                            {estRevenu ? '+' : '−'}{montantAbs.toFixed(2)} €
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditRecurrence(recurrence)}
+                            className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
+                            title="Modifier avant d'ajouter"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleAddRecurrence(recurrence)}
+                            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex items-center gap-1 text-sm font-medium"
+                          >
+                            <Check size={16} />
+                            Ajouter
+                          </button>
+                          <button
+                            onClick={() => handleDismissRecurrence(recurrence.id)}
+                            className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-all"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -371,7 +382,7 @@ export const ChargesRecurrentes = () => {
                   type="number"
                   value={formData.montant}
                   onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
-                  placeholder="Positif = revenu, Négatif = dépense"
+                  placeholder="Montant (ex: 2000)"
                   className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
                 />
               </div>
@@ -435,6 +446,12 @@ export const ChargesRecurrentes = () => {
                 />
               </div>
             </div>
+            <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 mt-3">
+              <p className="text-xs text-blue-800">
+                💡 <strong>Astuce :</strong> Le signe +/− sera déterminé automatiquement selon la catégorie choisie. 
+                Les catégories comme "Salaire", "Prime", etc. sont des revenus (+), les autres sont des dépenses (−).
+              </p>
+            </div>
             <div className="flex gap-2 mt-4">
               <button
                 onClick={handleAddManual}
@@ -460,114 +477,107 @@ export const ChargesRecurrentes = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {chargesFixes.map((charge) => (
-              <div
-                key={charge.id}
-                className="bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
-              >
-                {editingChargeId === charge.id ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-3">
-                      <input
-                        type="text"
-                        value={formData.nom}
-                        onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                        className="px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                      />
-                      <input
-                        type="number"
-                        value={formData.montant}
-                        onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
-                        className="px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                      />
-                      <select
-                        value={formData.frequence}
-                        onChange={(e) => setFormData({ ...formData, frequence: e.target.value })}
-                        className="px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                      >
-                        {frequences.map(freq => (
-                          <option key={freq} value={freq}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleSaveCharge}
-                        className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium"
-                      >
-                        ✓ Sauvegarder
-                      </button>
-                      <button
-                        onClick={() => setEditingChargeId(null)}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
-                      >
-                        Annuler
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      {/* ✅ AJOUT : Signe + ou - devant le nom */}
-                      <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                        <span className={`text-2xl font-bold ${charge.montant >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {charge.montant >= 0 ? '+' : '−'}
-                        </span>
-                        {charge.nom}
-                      </h4>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(charge.frequence)}`}>
-                          📅 {charge.frequence}
-                        </span>
-                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg">
-                          🏷️ {charge.categorie}
-                        </span>
-                        {charge.compte && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
-                            🏦 {charge.compte}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 ml-4">
-                      <div className="text-right">
-                        <div className="flex items-center gap-2 mb-1 justify-end">
-                          {charge.montant >= 0 ? (
-                            <div className="bg-green-100 rounded-full p-1">
-                              <TrendingUp size={16} className="text-green-600" />
-                            </div>
-                          ) : (
-                            <div className="bg-red-100 rounded-full p-1">
-                              <TrendingDown size={16} className="text-red-600" />
-                            </div>
-                          )}
-                          <span className="text-xs font-medium text-gray-600">
-                            {charge.montant >= 0 ? 'Revenu' : 'Dépense'}
-                          </span>
-                        </div>
-                        <p className={`text-2xl font-bold ${charge.montant < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {charge.montant >= 0 ? '+' : ''}{charge.montant.toFixed(2)} €
-                        </p>
+            {chargesFixes.map((charge) => {
+              const estRevenu = charge.montant >= 0;
+              const montantAbs = Math.abs(charge.montant);
+              
+              return (
+                <div
+                  key={charge.id}
+                  className="bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
+                >
+                  {editingChargeId === charge.id ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-3">
+                        <input
+                          type="text"
+                          value={formData.nom}
+                          onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                          className="px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                        <input
+                          type="number"
+                          value={formData.montant}
+                          onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
+                          className="px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                        <select
+                          value={formData.frequence}
+                          onChange={(e) => setFormData({ ...formData, frequence: e.target.value })}
+                          className="px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                        >
+                          {frequences.map(freq => (
+                            <option key={freq} value={freq}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</option>
+                          ))}
+                        </select>
                       </div>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEditCharge(charge)}
-                          className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
+                          onClick={handleSaveCharge}
+                          className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium"
                         >
-                          <Edit2 size={16} />
+                          ✓ Sauvegarder
                         </button>
                         <button
-                          onClick={() => handleDelete(charge.id)}
-                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
+                          onClick={() => setEditingChargeId(null)}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
                         >
-                          <Trash2 size={16} />
+                          Annuler
                         </button>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                          <span className={`text-2xl font-bold ${estRevenu ? 'text-green-600' : 'text-red-600'}`}>
+                            {estRevenu ? '+' : '−'}
+                          </span>
+                          {charge.nom}
+                        </h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(charge.frequence)}`}>
+                            📅 {charge.frequence}
+                          </span>
+                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg">
+                            🏷️ {charge.categorie}
+                          </span>
+                          {charge.compte && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
+                              🏦 {charge.compte}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 ml-4">
+                        <div className="text-right">
+                          <p className={`text-xs font-medium mb-1 ${estRevenu ? 'text-green-700' : 'text-red-700'}`}>
+                            {estRevenu ? 'Revenu' : 'Dépense'}
+                          </p>
+                          <p className={`text-2xl font-bold ${estRevenu ? 'text-green-600' : 'text-red-600'}`}>
+                            {estRevenu ? '+' : '−'}{montantAbs.toFixed(2)} €
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditCharge(charge)}
+                            className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(charge.id)}
+                            className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -577,10 +587,9 @@ export const ChargesRecurrentes = () => {
         <h3 className="font-bold text-blue-900 mb-3">💡 Comment ça marche ?</h3>
         <ul className="space-y-2 text-sm text-blue-800">
           <li>• <strong>Récurrences détectées :</strong> Analysées automatiquement depuis vos transactions bancaires synchronisées</li>
-          <li>• <strong>Signe + ou − :</strong> Indique immédiatement s'il s'agit d'un revenu (+) ou d'une dépense (−)</li>
-          <li>• <strong>Revenus :</strong> Affichés avec icône ↗️ verte et signe + (montants positifs)</li>
-          <li>• <strong>Dépenses :</strong> Affichés avec icône ↘️ rouge et signe − (montants négatifs)</li>
-          <li>• <strong>Modifier avant d'ajouter :</strong> Cliquez sur ✏️ pour ajuster les détails d'une récurrence détectée</li>
+          <li>• <strong>Signe + (vert) :</strong> Revenus (Salaire, Prime, Freelance, Investissements, Autres revenus)</li>
+          <li>• <strong>Signe − (rouge) :</strong> Dépenses (toutes les autres catégories)</li>
+          <li>• <strong>Ajout automatique :</strong> Le montant est converti selon la catégorie choisie</li>
           <li>• <strong>Calcul automatique :</strong> Utilisées dans le mode "Automatique" du Prévisionnel</li>
         </ul>
       </div>
