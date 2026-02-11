@@ -1,444 +1,258 @@
 import { useState } from 'react';
 import { useFinance } from '../../contexts/FinanceContext';
-import { usePrevisionnel } from '../../hooks/usePrevisionnel';
-import { useChargesFixes } from '../../hooks/useChargesFixes';
-import { Plus, Edit2, Trash2, X, Check, Calendar, Euro, Tag, Building2, Save, TrendingUp, TrendingDown } from 'lucide-react';
+import { BankConnection } from '../Bank/BankConnection';
+import { Plus, Edit2, Trash2, Eye, EyeOff, CreditCard, TrendingUp, TrendingDown } from 'lucide-react';
 
-export const ChargesRecurrentes = () => {
-  const { chargesFixes, comptes } = useFinance();
-  const { recurrencesNouvellesUniques } = usePrevisionnel();
-  const { addChargeFixe, updateChargeFixe, deleteChargeFixe } = useChargesFixes();
-
-  const [dismissedIds, setDismissedIds] = useState([]);
-  const [editingRecurrenceId, setEditingRecurrenceId] = useState(null);
-  const [editingChargeId, setEditingChargeId] = useState(null);
-  const [showAddForm, setShowAddForm] = useState(false);
+export const ComptesEtBanque = () => {
+  const { comptes, setComptes, transactions, setTransactions, currentUser } = useFinance();
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     nom: '',
-    montant: '',
-    categorie: 'Autres dépenses',
-    frequence: 'mensuelle',
-    compte: comptes[0]?.nom || '',
-    jourMois: 1
+    type: 'courant',
+    solde: '',
+    devise: 'EUR',
+    masque: false
   });
 
-  const visibleRecurrences = recurrencesNouvellesUniques.filter(
-    r => !dismissedIds.includes(r.id)
-  );
+  const typesCompte = [
+    { value: 'courant', label: '💳 Compte Courant', icon: CreditCard },
+    { value: 'epargne', label: '💰 Compte Épargne', icon: TrendingUp },
+    { value: 'livret', label: '📊 Livret', icon: TrendingUp },
+    { value: 'investissement', label: '📈 Investissement', icon: TrendingUp }
+  ];
 
-  const handleEditRecurrence = (recurrence) => {
-    setEditingRecurrenceId(recurrence.id);
-    setFormData({
-      nom: recurrence.nom,
-      montant: recurrence.montant.toString(),
-      categorie: recurrence.categorie,
-      frequence: recurrence.frequence.toLowerCase(),
-      compte: recurrence.compte,
-      jourMois: 1
-    });
-  };
-
-  const handleSaveRecurrence = (recurrenceId) => {
-    const newCharge = {
-      nom: formData.nom,
-      montant: parseFloat(formData.montant),
-      categorie: formData.categorie,
-      frequence: formData.frequence,
-      compte: formData.compte,
-      jourMois: parseInt(formData.jourMois)
-    };
-
-    addChargeFixe(newCharge);
-    setDismissedIds(prev => [...prev, recurrenceId]);
-    setEditingRecurrenceId(null);
-    setFormData({
-      nom: '',
-      montant: '',
-      categorie: 'Autres dépenses',
-      frequence: 'mensuelle',
-      compte: comptes[0]?.nom || '',
-      jourMois: 1
-    });
-  };
-
-  const handleAddRecurrence = (recurrence) => {
-    const newCharge = {
-      nom: recurrence.nom,
-      montant: recurrence.montant,
-      categorie: recurrence.categorie,
-      frequence: recurrence.frequence.toLowerCase(),
-      compte: recurrence.compte,
-      jourMois: 1
-    };
-
-    addChargeFixe(newCharge);
-    setDismissedIds(prev => [...prev, recurrence.id]);
-  };
-
-  const handleDismissRecurrence = (recurrenceId) => {
-    setDismissedIds(prev => [...prev, recurrenceId]);
-    if (editingRecurrenceId === recurrenceId) {
-      setEditingRecurrenceId(null);
-    }
-  };
-
-  const handleAddManual = () => {
-    if (!formData.nom || !formData.montant) {
-      alert('❌ Veuillez remplir au minimum le nom et le montant');
+  const handleSubmit = () => {
+    if (!formData.nom) {
+      alert('❌ Veuillez entrer un nom de compte');
       return;
     }
 
-    addChargeFixe({
-      ...formData,
-      montant: parseFloat(formData.montant)
-    });
+    if (editingId) {
+      setComptes(comptes.map(c => 
+        c.id === editingId 
+          ? { ...c, ...formData, solde: parseFloat(formData.solde) || 0 }
+          : c
+      ));
+    } else {
+      const newCompte = {
+        id: Date.now(),
+        ...formData,
+        solde: parseFloat(formData.solde) || 0,
+        soldeInitial: parseFloat(formData.solde) || 0
+      };
+      setComptes([...comptes, newCompte]);
+    }
 
     setFormData({
       nom: '',
-      montant: '',
-      categorie: 'Autres dépenses',
-      frequence: 'mensuelle',
-      compte: comptes[0]?.nom || '',
-      jourMois: 1
+      type: 'courant',
+      solde: '',
+      devise: 'EUR',
+      masque: false
     });
-    setShowAddForm(false);
+    setShowForm(false);
+    setEditingId(null);
   };
 
-  const handleEditCharge = (charge) => {
-    setEditingChargeId(charge.id);
+  const handleEdit = (compte) => {
+    setEditingId(compte.id);
     setFormData({
-      nom: charge.nom,
-      montant: charge.montant.toString(),
-      categorie: charge.categorie,
-      frequence: charge.frequence,
-      compte: charge.compte,
-      jourMois: charge.jourMois || 1
+      nom: compte.nom,
+      type: compte.type,
+      solde: compte.solde.toString(),
+      devise: compte.devise || 'EUR',
+      masque: compte.masque || false
     });
-  };
-
-  const handleSaveCharge = () => {
-    updateChargeFixe(editingChargeId, {
-      ...formData,
-      montant: parseFloat(formData.montant)
-    });
-    setEditingChargeId(null);
-    setFormData({
-      nom: '',
-      montant: '',
-      categorie: 'Autres dépenses',
-      frequence: 'mensuelle',
-      compte: comptes[0]?.nom || '',
-      jourMois: 1
-    });
+    setShowForm(true);
   };
 
   const handleDelete = (id) => {
-    if (confirm('❓ Supprimer cette charge/revenu fixe ?')) {
-      deleteChargeFixe(id);
+    if (confirm('❓ Supprimer ce compte ? Les transactions associées ne seront pas supprimées.')) {
+      setComptes(comptes.filter(c => c.id !== id));
     }
   };
 
-  const getFrequenceColor = (frequence) => {
-    const freq = (frequence || 'mensuelle').toLowerCase();
-    if (freq.includes('quotidien')) return 'bg-purple-100 text-purple-700';
-    if (freq.includes('hebdo')) return 'bg-blue-100 text-blue-700';
-    if (freq.includes('bimens')) return 'bg-cyan-100 text-cyan-700';
-    if (freq.includes('mensuel')) return 'bg-green-100 text-green-700';
-    if (freq.includes('trimestriel')) return 'bg-yellow-100 text-yellow-700';
-    if (freq.includes('semestriel')) return 'bg-orange-100 text-orange-700';
-    if (freq.includes('annuel')) return 'bg-red-100 text-red-700';
-    return 'bg-gray-100 text-gray-700';
+  const bankConnection = localStorage.getItem(`bank_connection_${currentUser}`);
+  const isBankConnected = !!bankConnection;
+  const connectedBankName = isBankConnected ? JSON.parse(bankConnection).bankName : null;
+
+  const handleDisconnectBank = () => {
+    if (confirm('⚠️ Déconnecter votre banque ? Cela supprimera toutes les transactions synchronisées et la connexion.')) {
+      const updatedTransactions = transactions.filter(t => !t.isSynced && !t.bridgeId);
+      setTransactions(updatedTransactions);
+      
+      const keysToRemove = [
+        `bank_connection_${currentUser}`,
+        `bank_token_${currentUser}`,
+        `bank_accounts_${currentUser}`,
+        `bank_sync_date_${currentUser}`,
+        `last_sync_${currentUser}`
+      ];
+      
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes(currentUser) && (key.startsWith('bank_') || key.startsWith('bridge_'))) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      alert('✅ Banque déconnectée et transactions synchronisées supprimées');
+      window.location.reload();
+    }
   };
 
-  const categories = [
-    'Salaire', 'Prime', 'Freelance', 'Investissements', 'Autres revenus',
-    'Loyer', 'Courses', 'Restaurants', 'Transport', 'Loisirs', 
-    'Santé', 'Logement', 'Abonnements', 'Retraits', 'Autres dépenses'
-  ];
-
-  const frequences = ['quotidienne', 'hebdomadaire', 'bimensuelle', 'mensuelle', 'trimestrielle', 'semestrielle', 'annuelle'];
+  const totalSolde = comptes.reduce((sum, c) => sum + (c.solde || 0), 0);
 
   return (
     <div className="space-y-6">
-      {/* ═══ RÉCURRENCES DÉTECTÉES ═══ */}
-      {visibleRecurrences.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-amber-900 flex items-center gap-2">
-                🔍 Récurrences détectées automatiquement
-                <span className="bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                  {visibleRecurrences.length}
-                </span>
-              </h3>
-              <p className="text-sm text-amber-700 mt-1">
-                Ces transactions récurrentes ont été identifiées dans votre historique bancaire
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {visibleRecurrences.map((recurrence) => (
-              <div
-                key={recurrence.id}
-                className="bg-white border-2 border-amber-200 rounded-xl p-4 hover:shadow-md transition-all"
-              >
-                {editingRecurrenceId === recurrence.id ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
-                        <input
-                          type="text"
-                          value={formData.nom}
-                          onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Montant (€)</label>
-                        <input
-                          type="number"
-                          value={formData.montant}
-                          onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
-                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Catégorie</label>
-                        <select
-                          value={formData.categorie}
-                          onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
-                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
-                        >
-                          {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Fréquence</label>
-                        <select
-                          value={formData.frequence}
-                          onChange={(e) => setFormData({ ...formData, frequence: e.target.value })}
-                          className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none"
-                        >
-                          {frequences.map(freq => (
-                            <option key={freq} value={freq}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleSaveRecurrence(recurrence.id)}
-                        className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium flex items-center justify-center gap-1"
-                      >
-                        <Save size={16} />
-                        Enregistrer et Ajouter
-                      </button>
-                      <button
-                        onClick={() => setEditingRecurrenceId(null)}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
-                      >
-                        Annuler
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-800 mb-2">{recurrence.nom}</h4>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(recurrence.frequence)}`}>
-                          📅 {recurrence.frequence}
-                        </span>
-                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg">
-                          🏷️ {recurrence.categorie}
-                        </span>
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
-                          🏦 {recurrence.compte}
-                        </span>
-                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg">
-                          🔁 {recurrence.nombreOccurrences} mois détectés
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 ml-4">
-                      <div className="text-right">
-                        {/* ✅ AJOUT : Icône + ou - selon le signe */}
-                        <div className="flex items-center gap-2 mb-1">
-                          {recurrence.montant >= 0 ? (
-                            <div className="bg-green-100 rounded-full p-1">
-                              <TrendingUp size={16} className="text-green-600" />
-                            </div>
-                          ) : (
-                            <div className="bg-red-100 rounded-full p-1">
-                              <TrendingDown size={16} className="text-red-600" />
-                            </div>
-                          )}
-                          <span className="text-xs font-medium text-gray-600">
-                            {recurrence.montant >= 0 ? 'Revenu' : 'Dépense'}
-                          </span>
-                        </div>
-                        <p className={`text-xl font-bold ${recurrence.montant < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {recurrence.montant >= 0 ? '+' : ''}{recurrence.montant.toFixed(2)} €
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditRecurrence(recurrence)}
-                          className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
-                          title="Modifier avant d'ajouter"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleAddRecurrence(recurrence)}
-                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex items-center gap-1 text-sm font-medium"
-                        >
-                          <Check size={16} />
-                          Ajouter
-                        </button>
-                        <button
-                          onClick={() => handleDismissRecurrence(recurrence.id)}
-                          className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-all"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+      {/* ═══ SYNCHRONISATION BANCAIRE ═══ */}
+      <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          🏦 Synchronisation bancaire
+        </h3>
+        
+        {isBankConnected ? (
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-green-700 mb-1">✅ Banque connectée</p>
+                  <p className="text-lg font-bold text-green-900">{connectedBankName}</p>
+                </div>
+                <button
+                  onClick={handleDisconnectBank}
+                  className="px-4 py-2 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-all text-sm"
+                >
+                  Déconnecter
+                </button>
               </div>
-            ))}
+            </div>
+            
+            <BankConnection />
           </div>
-        </div>
-      )}
+        ) : (
+          <BankConnection />
+        )}
+      </div>
 
-      {/* ═══ CHARGES & REVENUS FIXES CONFIRMÉS ═══ */}
+      {/* ═══ MES COMPTES ═══ */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              ✅ Mes transactions récurrentes confirmées
+              💳 Mes comptes bancaires
               <span className="bg-blue-500 text-white text-sm font-bold px-2 py-1 rounded-full">
-                {chargesFixes.length}
+                {comptes.length}
               </span>
             </h3>
             <p className="text-gray-600 text-sm mt-1">
-              Revenus et dépenses qui reviennent régulièrement
+              Gérez vos comptes courants, épargne et investissements
             </p>
           </div>
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => setShowForm(!showForm)}
             className="px-4 py-2 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-all flex items-center gap-2"
           >
             <Plus size={20} />
-            Ajouter manuellement
+            {editingId ? 'Annuler' : 'Ajouter un compte'}
           </button>
         </div>
 
-        {/* Formulaire d'ajout manuel */}
-        {showAddForm && (
+        {/* Formulaire d'ajout/édition */}
+        {showForm && (
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
-            <h4 className="font-bold text-blue-900 mb-4">➕ Nouvelle transaction récurrente</h4>
+            <h4 className="font-bold text-blue-900 mb-4">
+              {editingId ? '✏️ Modifier le compte' : '➕ Nouveau compte'}
+            </h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Tag size={14} className="inline mr-1" />
-                  Nom
+                  Nom du compte
                 </label>
                 <input
                   type="text"
                   value={formData.nom}
                   onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                  placeholder="Ex: Loyer, Salaire..."
+                  placeholder="Ex: Compte Courant Principal"
                   className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Euro size={14} className="inline mr-1" />
-                  Montant (€)
+                  Type de compte
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                >
+                  {typesCompte.map(type => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Solde initial (€)
                 </label>
                 <input
                   type="number"
-                  value={formData.montant}
-                  onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
-                  placeholder="Positif = revenu, Négatif = dépense"
+                  step="0.01"
+                  value={formData.solde}
+                  onChange={(e) => setFormData({ ...formData, solde: e.target.value })}
+                  placeholder="0.00"
                   className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Tag size={14} className="inline mr-1" />
-                  Catégorie
+                  Devise
                 </label>
                 <select
-                  value={formData.categorie}
-                  onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
+                  value={formData.devise}
+                  onChange={(e) => setFormData({ ...formData, devise: e.target.value })}
                   className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
                 >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
+                  <option value="EUR">EUR (€)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="CHF">CHF (Fr)</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Calendar size={14} className="inline mr-1" />
-                  Fréquence
-                </label>
-                <select
-                  value={formData.frequence}
-                  onChange={(e) => setFormData({ ...formData, frequence: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                >
-                  {frequences.map(freq => (
-                    <option key={freq} value={freq}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Building2 size={14} className="inline mr-1" />
-                  Compte
-                </label>
-                <select
-                  value={formData.compte}
-                  onChange={(e) => setFormData({ ...formData, compte: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                >
-                  {comptes.map(compte => (
-                    <option key={compte.id} value={compte.nom}>{compte.nom}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Calendar size={14} className="inline mr-1" />
-                  Jour du mois
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.jourMois}
-                  onChange={(e) => setFormData({ ...formData, jourMois: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                />
-              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <input
+                type="checkbox"
+                id="masque"
+                checked={formData.masque}
+                onChange={(e) => setFormData({ ...formData, masque: e.target.checked })}
+                className="w-4 h-4 accent-blue-500"
+              />
+              <label htmlFor="masque" className="text-sm text-gray-700">
+                Masquer ce compte dans les statistiques
+              </label>
             </div>
             <div className="flex gap-2 mt-4">
               <button
-                onClick={handleAddManual}
+                onClick={handleSubmit}
                 className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium"
               >
-                ✓ Ajouter
+                ✓ {editingId ? 'Sauvegarder' : 'Ajouter'}
               </button>
               <button
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                  setFormData({
+                    nom: '',
+                    type: 'courant',
+                    solde: '',
+                    devise: 'EUR',
+                    masque: false
+                  });
+                }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
               >
                 Annuler
@@ -447,118 +261,88 @@ export const ChargesRecurrentes = () => {
           </div>
         )}
 
-        {/* Liste des charges fixes */}
-        {chargesFixes.length === 0 ? (
+        {/* Liste des comptes */}
+        {comptes.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            <p className="text-lg">📭 Aucune transaction récurrente configurée</p>
-            <p className="text-sm mt-2">Ajoutez-en manuellement ou synchronisez votre banque pour détecter les récurrences</p>
+            <p className="text-lg">📭 Aucun compte configuré</p>
+            <p className="text-sm mt-2">Ajoutez votre premier compte pour commencer</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {chargesFixes.map((charge) => (
-              <div
-                key={charge.id}
-                className="bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
-              >
-                {editingChargeId === charge.id ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-3">
-                      <input
-                        type="text"
-                        value={formData.nom}
-                        onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                        className="px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                      />
-                      <input
-                        type="number"
-                        value={formData.montant}
-                        onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
-                        className="px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                      />
-                      <select
-                        value={formData.frequence}
-                        onChange={(e) => setFormData({ ...formData, frequence: e.target.value })}
-                        className="px-3 py-2 border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                      >
-                        {frequences.map(freq => (
-                          <option key={freq} value={freq}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</option>
-                        ))}
-                      </select>
+          <>
+            {/* Résumé total */}
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-4 mb-4 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">Solde total</p>
+                  <p className="text-3xl font-bold">{totalSolde.toFixed(2)} €</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm opacity-90">{comptes.length} compte{comptes.length > 1 ? 's' : ''}</p>
+                  <p className="text-lg font-medium">{comptes.filter(c => !c.masque).length} visible{comptes.filter(c => !c.masque).length > 1 ? 's' : ''}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Cartes des comptes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {comptes.map((compte) => (
+                <div
+                  key={compte.id}
+                  className={`rounded-xl p-4 border-2 transition-all ${
+                    compte.masque 
+                      ? 'bg-gray-100 border-gray-300 opacity-60' 
+                      : 'bg-gradient-to-br from-white to-gray-50 border-gray-200 hover:shadow-lg'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-bold text-gray-800">{compte.nom}</h4>
+                        {compte.masque && <EyeOff size={14} className="text-gray-500" />}
+                        {compte.isSynced && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Synchronisé</span>}
+                      </div>
+                      <p className="text-xs text-gray-600">
+                        {typesCompte.find(t => t.value === compte.type)?.label || compte.type}
+                      </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <button
-                        onClick={handleSaveCharge}
-                        className="flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium"
+                        onClick={() => handleEdit(compte)}
+                        className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
                       >
-                        ✓ Sauvegarder
+                        <Edit2 size={14} />
                       </button>
                       <button
-                        onClick={() => setEditingChargeId(null)}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
+                        onClick={() => handleDelete(compte.id)}
+                        className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
                       >
-                        Annuler
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
-                ) : (
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-800 mb-2">{charge.nom}</h4>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getFrequenceColor(charge.frequence)}`}>
-                          📅 {charge.frequence}
-                        </span>
-                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg">
-                          🏷️ {charge.categorie}
-                        </span>
-                        {charge.compte && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
-                            🏦 {charge.compte}
-                          </span>
-                        )}
-                      </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Solde actuel</p>
+                      <p className={`text-2xl font-bold ${compte.solde >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {compte.solde?.toFixed(2)} {compte.devise || '€'}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-4 ml-4">
+                    {compte.solde !== compte.soldeInitial && (
                       <div className="text-right">
-                        {/* ✅ AJOUT : Icône + ou - selon le signe */}
-                        <div className="flex items-center gap-2 mb-1 justify-end">
-                          {charge.montant >= 0 ? (
-                            <div className="bg-green-100 rounded-full p-1">
-                              <TrendingUp size={16} className="text-green-600" />
-                            </div>
-                          ) : (
-                            <div className="bg-red-100 rounded-full p-1">
-                              <TrendingDown size={16} className="text-red-600" />
-                            </div>
-                          )}
-                          <span className="text-xs font-medium text-gray-600">
-                            {charge.montant >= 0 ? 'Revenu' : 'Dépense'}
-                          </span>
-                        </div>
-                        <p className={`text-2xl font-bold ${charge.montant < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {charge.montant >= 0 ? '+' : ''}{charge.montant.toFixed(2)} €
+                        <p className="text-xs text-gray-500">Évolution</p>
+                        <p className={`text-sm font-medium flex items-center gap-1 ${
+                          (compte.solde - compte.soldeInitial) >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {(compte.solde - compte.soldeInitial) >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                          {Math.abs(compte.solde - compte.soldeInitial).toFixed(2)} €
                         </p>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditCharge(charge)}
-                          className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(charge.id)}
-                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -566,11 +350,10 @@ export const ChargesRecurrentes = () => {
       <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
         <h3 className="font-bold text-blue-900 mb-3">💡 Comment ça marche ?</h3>
         <ul className="space-y-2 text-sm text-blue-800">
-          <li>• <strong>Récurrences détectées :</strong> Analysées automatiquement depuis vos transactions bancaires synchronisées</li>
-          <li>• <strong>Revenus :</strong> Affichés avec icône ↗️ verte et signe + (montants positifs)</li>
-          <li>• <strong>Dépenses :</strong> Affichés avec icône ↘️ rouge et signe - (montants négatifs)</li>
-          <li>• <strong>Modifier avant d'ajouter :</strong> Cliquez sur ✏️ pour ajuster les détails d'une récurrence détectée</li>
-          <li>• <strong>Calcul automatique :</strong> Utilisées dans le mode "Automatique" du Prévisionnel</li>
+          <li>• <strong>Synchronisation bancaire :</strong> Connectez votre banque pour importer automatiquement vos transactions</li>
+          <li>• <strong>Déconnexion :</strong> Supprime la connexion ET toutes les transactions synchronisées</li>
+          <li>• <strong>Comptes manuels :</strong> Ajoutez des comptes non synchronisés (espèces, comptes non supportés)</li>
+          <li>• <strong>Masquer un compte :</strong> Exclut le compte des statistiques globales sans le supprimer</li>
         </ul>
       </div>
     </div>
