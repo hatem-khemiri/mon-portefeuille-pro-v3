@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { ArrowUp } from 'lucide-react';
 import { TransactionForm } from './TransactionForm';
 import { TransfertForm } from './TransfertForm';
 import { TransactionList } from './TransactionList';
@@ -8,6 +9,20 @@ export const TransactionsContainer = () => {
   const { deleteTransaction } = useTransactions();
   const [activeTab, setActiveTab] = useState('transaction');
   const [deletingTransaction, setDeletingTransaction] = useState(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 500);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleDelete = (transaction) => {
     setDeletingTransaction(transaction);
@@ -125,6 +140,20 @@ export const TransactionsContainer = () => {
       </div>
 
       <TransactionList onDeleteTransaction={handleDelete} />
+
+      {/* BOUTON SCROLL TO TOP */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-all z-50 group"
+          aria-label="Retour en haut"
+        >
+          <ArrowUp size={24} />
+          <span className="absolute -top-12 right-0 bg-gray-800 text-white text-xs px-3 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            Retour en haut
+          </span>
+        </button>
+      )}
     </div>
   );
 };
