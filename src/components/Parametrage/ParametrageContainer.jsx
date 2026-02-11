@@ -10,10 +10,10 @@ export const ParametrageContainer = ({ onExport, onLogout }) => {
 
   const sections = [
     { id: 'profil', label: '👤 Mon Profil' },
-    { id: 'comptes', label: '🏦 Mes Comptes & Banque' },
+    { id: 'comptes', label: '🏦 Mes Comptes Bancaires' },
     { id: 'recurrentes', label: '🔄 Mes Transactions Récurrentes' },
-    { id: 'memos', label: '📝 Mémos Budgétaires' },
-    { id: 'categories', label: '🏷️ Mes Catégories' }
+    { id: 'memos', label: '📝 Mes Mémos Budgétaires' },
+    { id: 'categories', label: '🏷️ Configuration des Catégories' }
   ];
 
   const renderSection = () => {

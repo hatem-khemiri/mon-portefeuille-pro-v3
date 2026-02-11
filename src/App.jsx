@@ -22,7 +22,7 @@ import { TrendingUp, FileText, Calendar, PiggyBank, CreditCard, Settings } from 
 const tabs = [
   { id: 'dashboard', label: 'Tableau de Bord', icon: TrendingUp },
   { id: 'transactions', label: 'Transactions', icon: FileText },
-  { id: 'previsionnel', label: 'Prévisionnel', icon: Calendar },
+  { id: 'previsionnel', label: 'Configuration du Prévisionnel', icon: Calendar },
   { id: 'epargnes', label: 'Épargnes', icon: PiggyBank },
   { id: 'dettes', label: 'Crédits & Dettes', icon: CreditCard },
   { id: 'parametrage', label: 'Paramétrage', icon: Settings }

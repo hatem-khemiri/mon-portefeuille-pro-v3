@@ -255,19 +255,6 @@ export const BankConnection = () => {
           </div>
         )}
 
-        {bankConnection && (
-          <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 mb-4">
-            <p className="text-sm text-green-800 mb-2">
-              ✅ {bankConnection.bankName || 'BoursoBank'} connectée
-            </p>
-            {lastSync && (
-              <p className="text-xs text-green-700">
-                Dernière sync : {new Date(lastSync).toLocaleString('fr-FR')}
-              </p>
-            )}
-          </div>
-        )}
-
         <div className="space-y-3">
           <button
             onClick={handleConnect}
