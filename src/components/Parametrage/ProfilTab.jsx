@@ -89,7 +89,7 @@ export const ProfilTab = ({ onExport, onLogout }) => {
       return;
     }
 
-    if (passwordForm.newPassword.length < 6) {
+    if (passwordForm.newPassword.length < 4) {
       alert('❌ Le nouveau mot de passe doit contenir au moins 4 caractères');
       return;
     }
