@@ -9,22 +9,17 @@ export const GraphiqueSolde = () => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     const anneeActuelle = new Date().getFullYear();
     
-    // ✅ HELPER : Normaliser date (évite bug timezone)
     const normaliserDate = (date) => {
       const d = new Date(date);
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     };
     
-    // ✅ SOLDE INITIAL TOTAL
     const soldeInitial = comptes.reduce((sum, c) => sum + (c.soldeInitial || 0), 0);
     
     return mois.map((nom, moisIndex) => {
-      // ✅ FIN DU MOIS normalisée (23h59 évite bug dernier jour)
       const finMoisNorm = new Date(anneeActuelle, moisIndex + 1, 0, 23, 59, 59);
       
-      // ═══════════════════════════════════════════════════════
-      // SOLDE RÉEL = Solde initial + transactions RÉALISÉES jusqu'au mois (inclus)
-      // ═══════════════════════════════════════════════════════
+      // SOLDE RÉEL
       const transactionsRealisees = (transactions || []).filter(t => {
         const dateT = normaliserDate(t.date);
         return dateT <= finMoisNorm && t.statut === 'realisee';
@@ -33,16 +28,29 @@ export const GraphiqueSolde = () => {
       const mouvementsReels = transactionsRealisees.reduce((sum, t) => sum + t.montant, 0);
       const soldeReel = soldeInitial + mouvementsReels;
       
-      // ═══════════════════════════════════════════════════════
-      // SOLDE PRÉVISIONNEL = Solde initial + TOUTES transactions (réalisées + à venir) jusqu'au mois (inclus)
-      // ═══════════════════════════════════════════════════════
+      // SOLDE PRÉVISIONNEL
       const toutesTransactions = (transactions || []).filter(t => {
         const dateT = normaliserDate(t.date);
-        return dateT <= finMoisNorm; // ✅ Inclut réalisées ET à venir
+        return dateT <= finMoisNorm;
       });
       
       const mouvementsPrevus = toutesTransactions.reduce((sum, t) => sum + t.montant, 0);
       const soldePrevu = soldeInitial + mouvementsPrevus;
+      
+      // ✅ DEBUG TEMPORAIRE (dernier mois de la période)
+      if (moisIndex === 11 || moisIndex === new Date().getMonth()) {
+        console.log('=== DEBUG GRAPHIQUE SOLDE ===');
+        console.log('Mois:', nom, '(index', moisIndex + ')');
+        console.log('Solde initial TOTAL comptes:', soldeInitial);
+        console.log('Fin mois normalisée:', finMoisNorm.toLocaleDateString('fr-FR'));
+        console.log('Transactions réalisées:', transactionsRealisees.length, transactionsRealisees.map(t => `${t.date}: ${t.montant}€`));
+        console.log('Toutes transactions:', toutesTransactions.length, toutesTransactions.map(t => `${t.date}: ${t.montant}€ (${t.statut})`));
+        console.log('Mouvements réels:', mouvementsReels);
+        console.log('Mouvements prévus:', mouvementsPrevus);
+        console.log('SOLDE RÉEL:', soldeReel);
+        console.log('SOLDE PRÉVU GRAPHIQUE:', soldePrevu);
+        console.log('============================');
+      }
       
       return {
         mois: nom,
