@@ -10,15 +10,14 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     
     if (vueTableauBord === 'mensuel') {
       dateDebut = new Date(anneeActuelle, moisActuel, 1);
-      dateFin = new Date(anneeActuelle, moisActuel + 1, 0, 23, 59, 59); // ✅ FIN DU MOIS, pas aujourd'hui !
+      dateFin = new Date(anneeActuelle, moisActuel + 1, 0, 23, 59, 59);
       dateFinPrevue = new Date(anneeActuelle, moisActuel + 1, 0, 23, 59, 59);
     } else {
       dateDebut = new Date(anneeActuelle, 0, 1);
-      dateFin = new Date(anneeActuelle, 11, 31, 23, 59, 59); // ✅ FIN DE L'ANNÉE
+      dateFin = new Date(anneeActuelle, 11, 31, 23, 59, 59);
       dateFinPrevue = new Date(anneeActuelle, 11, 31, 23, 59, 59);
     }
     
-    // ✅ VÉRIFICATION : transactions et comptes existent
     if (!transactions || transactions.length === 0 || !comptes || comptes.length === 0) {
       return {
         soldeDebut: 0,
@@ -37,7 +36,6 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
       };
     }
     
-    // Utiliser le compte sélectionné ou le premier compte courant par défaut
     const compteActuel = compteSelectionne 
       ? comptes.find(c => c.nom === compteSelectionne)
       : comptes.find(c => c.nom === 'Compte Courant' || c.type === 'courant') || comptes[0];
@@ -62,7 +60,6 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     
     const soldeInitialCompte = compteActuel.soldeInitial !== undefined ? compteActuel.soldeInitial : 0;
     
-    // ✅ HELPER : Normaliser date (évite bug timezone)
     const normaliserDate = (date) => {
       const d = new Date(date);
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -93,7 +90,7 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     // ═══════════════════════════════════════════════════════
     const transactionsPeriode = toutesTransactionsRealisees.filter(t => {
       const dateT = normaliserDate(t.date);
-      return dateT >= dateDebutNorm && dateT <= dateFinNorm; // ✅ Jusqu'à FIN du mois/année
+      return dateT >= dateDebutNorm && dateT <= dateFinNorm;
     });
     
     const revenusPeriode = transactionsPeriode
@@ -118,7 +115,7 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     const transactionsAVenir = transactions.filter(t => {
       const dateT = normaliserDate(t.date);
       const estAVenir = (t.statut === 'a_venir' || t.statut === 'avenir');
-      const dansLaPeriode = dateT > aujourdHuiNorm && dateT <= dateFinPrevueNorm; // ✅ Après AUJOURD'HUI
+      const dansLaPeriode = dateT > aujourdHuiNorm && dateT <= dateFinPrevueNorm;
       
       return estAVenir && dansLaPeriode && t.compte === compteActuel.nom;
     });
@@ -139,9 +136,17 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     const soldeAVenir = transactionsAVenir.reduce((acc, t) => acc + (t.montant || 0), 0);
     
     // ═══════════════════════════════════════════════════════
-    // SOLDE PRÉVISIONNEL = Solde actuel + mouvements à venir
+    // ✅ CORRECTION : SOLDE PRÉVISIONNEL = Solde initial + TOUTES transactions jusqu'à fin période
+    // (identique au graphique)
     // ═══════════════════════════════════════════════════════
-    const soldePrevisionnel = soldeActuel + soldeAVenir;
+    const toutesTransactionsPeriode = transactions.filter(t => {
+      const dateT = normaliserDate(t.date);
+      const estValide = (t.statut === 'realisee' || t.statut === 'a_venir' || t.statut === 'avenir');
+      return dateT >= dateDebutNorm && dateT <= dateFinPrevueNorm && estValide && t.compte === compteActuel.nom;
+    });
+    
+    const mouvementsTotaux = toutesTransactionsPeriode.reduce((acc, t) => acc + (t.montant || 0), 0);
+    const soldePrevisionnel = soldeDebut + mouvementsTotaux;
     
     return {
       soldeDebut,
@@ -153,7 +158,7 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
       depensesAVenir,
       epargnesAVenir,
       soldeAVenir,
-      soldePrevisionnel,
+      soldePrevisionnel, // ✅ Maintenant aligné avec le graphique
       dateDebut,
       dateFinPrevue,
       compteCourant: compteActuel
