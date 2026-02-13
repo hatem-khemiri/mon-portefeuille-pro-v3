@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { X, CheckCircle } from 'lucide-react';
 
 export const AccountMappingModal = ({ 
-  bankAccounts,
-  existingComptes,
+  bankAccounts = [],  // ✅ VALEUR PAR DÉFAUT
+  existingComptes = [],  // ✅ VALEUR PAR DÉFAUT
   onConfirm,
   onCancel
 }) => {
+  // ✅ VÉRIFICATION : Ne rien faire si pas de comptes
+  if (!bankAccounts || bankAccounts.length === 0) {
+    return null;
+  }
+
   // État : pour chaque compte bancaire Bridge, stocker l'action choisie
   const [mapping, setMapping] = useState(() => {
     const initialMapping = {};
