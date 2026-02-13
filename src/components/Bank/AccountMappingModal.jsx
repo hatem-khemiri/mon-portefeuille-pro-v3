@@ -2,48 +2,64 @@ import { useState } from 'react';
 import { X, CheckCircle } from 'lucide-react';
 
 export const AccountMappingModal = ({ 
-  isOpen, 
-  onClose, 
-  comptes, 
-  bankName, 
-  transactionsCount,
-  onConfirm 
+  bankAccounts,
+  existingComptes,
+  onConfirm,
+  onCancel
 }) => {
-  const [selectedOption, setSelectedOption] = useState(comptes.length > 0 ? 'existing' : 'new'); // ✅ Nouveau par défaut si aucun compte
-  const [selectedCompteId, setSelectedCompteId] = useState(comptes.length > 0 ? comptes[0].id : null);
-  const [newCompteName, setNewCompteName] = useState(bankName || 'Ma Banque');
-  const [newCompteType, setNewCompteType] = useState('courant');
+  // État : pour chaque compte bancaire Bridge, stocker l'action choisie
+  const [mapping, setMapping] = useState(() => {
+    const initialMapping = {};
+    bankAccounts.forEach(account => {
+      initialMapping[account.id] = {
+        action: existingComptes.length > 0 ? 'existing' : 'new',
+        existingId: existingComptes.length > 0 ? existingComptes[0].id : null,
+        newName: account.name || 'Mon Compte'
+      };
+    });
+    return initialMapping;
+  });
 
-  if (!isOpen) return null;
+  const handleActionChange = (accountId, action) => {
+    setMapping(prev => ({
+      ...prev,
+      [accountId]: {
+        ...prev[accountId],
+        action
+      }
+    }));
+  };
+
+  const handleExistingSelect = (accountId, existingId) => {
+    setMapping(prev => ({
+      ...prev,
+      [accountId]: {
+        ...prev[accountId],
+        existingId: parseInt(existingId)
+      }
+    }));
+  };
+
+  const handleNewNameChange = (accountId, newName) => {
+    setMapping(prev => ({
+      ...prev,
+      [accountId]: {
+        ...prev[accountId],
+        newName
+      }
+    }));
+  };
 
   const handleConfirm = () => {
     console.log('🔵 MODAL : handleConfirm appelé');
-    console.log('🔵 selectedOption:', selectedOption);
-    console.log('🔵 selectedCompteId:', selectedCompteId);
-    console.log('🔵 newCompteName:', newCompteName);
-  
-    if (selectedOption === 'existing' && selectedCompteId) {
-        const compte = comptes.find(c => c.id === selectedCompteId);
-        console.log('🔵 Compte trouvé:', compte);
-        onConfirm({ 
-            type: 'existing', 
-            compte: compte 
-        });
-    } else if (selectedOption === 'new') {
-        console.log('🔵 Création nouveau compte');
-        onConfirm({ 
-            type: 'new', 
-            compteName: newCompteName,
-            compteType: newCompteType
-        });
-    }
-  
-    console.log('✅ MODAL : onConfirm appelé');
-    };
+    console.log('🔵 selectedOption:', mapping);
+    
+    onConfirm(mapping);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 rounded-t-2xl">
           <div className="flex items-center justify-between">
@@ -52,12 +68,12 @@ export const AccountMappingModal = ({
               <div>
                 <h3 className="text-xl font-bold">Synchronisation réussie !</h3>
                 <p className="text-sm text-blue-100 mt-1">
-                  {transactionsCount} transaction{transactionsCount > 1 ? 's' : ''} trouvée{transactionsCount > 1 ? 's' : ''}
+                  {bankAccounts.length} compte{bankAccounts.length > 1 ? 's' : ''} bancaire{bankAccounts.length > 1 ? 's' : ''} détecté{bankAccounts.length > 1 ? 's' : ''}
                 </p>
               </div>
             </div>
             <button 
-              onClick={onClose}
+              onClick={onCancel}
               className="p-2 hover:bg-white/20 rounded-lg transition-all"
             >
               <X size={24} />
@@ -69,143 +85,119 @@ export const AccountMappingModal = ({
         <div className="p-6 space-y-6">
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
             <p className="text-sm text-blue-800">
-              💡 <strong>
-                {comptes.length > 0 
-                  ? 'Choisissez où assigner ces transactions :' 
-                  : 'Configurez votre nouveau compte bancaire :'}
-              </strong>
+              💡 <strong>Configurez vos comptes bancaires</strong>
             </p>
             <p className="text-xs text-blue-700 mt-2">
-              {comptes.length > 0
-                ? 'Vous pouvez les fusionner avec un compte existant ou créer un nouveau compte.'
-                : 'Personnalisez le nom et le type de votre compte.'}
+              Pour chaque compte détecté, choisissez de le fusionner avec un compte existant ou d'en créer un nouveau.
             </p>
           </div>
 
-          {/* Option 1 : Compte existant (seulement si des comptes existent) */}
-          {comptes.length > 0 && (
+          {/* Liste des comptes bancaires à mapper */}
+          {bankAccounts.map((account, index) => (
             <div 
-              onClick={() => setSelectedOption('existing')}
-              className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
-                selectedOption === 'existing' 
-                  ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-200 hover:border-blue-300'
-              }`}
+              key={account.id}
+              className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4"
             >
-              <div className="flex items-center gap-3 mb-3">
-                <input
-                  type="radio"
-                  name="option"
-                  checked={selectedOption === 'existing'}
-                  onChange={() => setSelectedOption('existing')}
-                  className="w-5 h-5 text-blue-600"
-                />
-                <label className="font-bold text-gray-800 cursor-pointer">
-                  📁 Fusionner avec un compte existant
-                </label>
-              </div>
-              
-              {selectedOption === 'existing' && (
-                <select
-                  value={selectedCompteId || ''}
-                  onChange={(e) => setSelectedCompteId(parseInt(e.target.value))}
-                  className="w-full px-4 py-3 border-2 border-blue-500 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-300"
-                >
-                  {comptes.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.nom} ({c.type === 'courant' ? 'Compte Courant' : c.type === 'epargne' ? 'Épargne' : 'Espèces'})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {/* Option 2 : Nouveau compte */}
-          <div 
-            onClick={() => setSelectedOption('new')}
-            className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
-              selectedOption === 'new' 
-                ? 'border-green-500 bg-green-50' 
-                : 'border-gray-200 hover:border-green-300'
-            }`}
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <input
-                type="radio"
-                name="option"
-                checked={selectedOption === 'new'}
-                onChange={() => setSelectedOption('new')}
-                className="w-5 h-5 text-green-600"
-              />
-              <label className="font-bold text-gray-800 cursor-pointer">
-                ✨ Créer un nouveau compte
-              </label>
-            </div>
-            
-            {selectedOption === 'new' && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-2">Nom du compte</label>
-                  <input
-                    type="text"
-                    value={newCompteName}
-                    onChange={(e) => setNewCompteName(e.target.value)}
-                    placeholder="Nom du nouveau compte"
-                    className="w-full px-4 py-3 border-2 border-green-500 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-green-300"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-2">Type de compte</label>
-                  <select
-                    value={newCompteType}
-                    onChange={(e) => setNewCompteType(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-green-500 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-green-300"
-                  >
-                    <option value="courant">💳 Compte Courant</option>
-                    <option value="epargne">💰 Épargne</option>
-                    <option value="especes">💵 Espèces/Cash</option>
-                  </select>
-                </div>
-                <p className="text-xs text-green-700">
-                  💡 Vous pouvez personnaliser le nom (ex: "BNP Paribas", "Crédit Agricole")
+              <div className="mb-4">
+                <h4 className="font-bold text-gray-800 mb-1">
+                  🏦 Compte {index + 1} : {account.name || 'Compte bancaire'}
+                </h4>
+                <p className="text-xs text-gray-600">
+                  ID Bridge : {account.id}
                 </p>
               </div>
-            )}
-          </div>
 
-          {/* Résumé */}
-          <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
-            <p className="text-sm font-bold text-gray-800 mb-2">📋 Résumé :</p>
-            <ul className="text-sm text-gray-700 space-y-1">
-              <li>• {transactionsCount} transaction{transactionsCount > 1 ? 's' : ''} synchronisée{transactionsCount > 1 ? 's' : ''}</li>
-              <li>
-                • Assignée{transactionsCount > 1 ? 's' : ''} au compte : <strong>
-                  {selectedOption === 'existing' 
-                    ? comptes.find(c => c.id === selectedCompteId)?.nom || 'Sélectionner'
-                    : newCompteName || 'Nouveau compte'
-                  }
-                </strong>
-              </li>
-            </ul>
-          </div>
+              {/* Option 1 : Fusionner avec existant */}
+              {existingComptes.length > 0 && (
+                <div 
+                  onClick={() => handleActionChange(account.id, 'existing')}
+                  className={`border-2 rounded-xl p-3 cursor-pointer transition-all mb-3 ${
+                    mapping[account.id]?.action === 'existing' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-300 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="radio"
+                      name={`action-${account.id}`}
+                      checked={mapping[account.id]?.action === 'existing'}
+                      onChange={() => handleActionChange(account.id, 'existing')}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <label className="font-medium text-gray-800 cursor-pointer text-sm">
+                      📁 Fusionner avec un compte existant
+                    </label>
+                  </div>
+                  
+                  {mapping[account.id]?.action === 'existing' && (
+                    <select
+                      value={mapping[account.id]?.existingId || ''}
+                      onChange={(e) => handleExistingSelect(account.id, e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {existingComptes.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.nom} ({c.type})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Option 2 : Créer nouveau */}
+              <div 
+                onClick={() => handleActionChange(account.id, 'new')}
+                className={`border-2 rounded-xl p-3 cursor-pointer transition-all ${
+                  mapping[account.id]?.action === 'new' 
+                    ? 'border-green-500 bg-green-50' 
+                    : 'border-gray-300 hover:border-green-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="radio"
+                    name={`action-${account.id}`}
+                    checked={mapping[account.id]?.action === 'new'}
+                    onChange={() => handleActionChange(account.id, 'new')}
+                    className="w-4 h-4 text-green-600"
+                  />
+                  <label className="font-medium text-gray-800 cursor-pointer text-sm">
+                    ✨ Créer un nouveau compte
+                  </label>
+                </div>
+                
+                {mapping[account.id]?.action === 'new' && (
+                  <input
+                    type="text"
+                    value={mapping[account.id]?.newName || ''}
+                    onChange={(e) => handleNewNameChange(account.id, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="Nom du compte (ex: BNP Paribas)"
+                    className="w-full px-3 py-2 border-2 border-green-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+                  />
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-gray-50 p-6 rounded-b-2xl border-t-2 border-gray-200">
           <div className="flex gap-3">
             <button
-              onClick={onClose}
+              onClick={onCancel}
               className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-all"
             >
               Annuler
             </button>
             <button
               onClick={handleConfirm}
-              disabled={selectedOption === 'new' && !newCompteName.trim()}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
             >
-              ✓ Confirmer
+              ✓ Confirmer ({bankAccounts.length} compte{bankAccounts.length > 1 ? 's' : ''})
             </button>
           </div>
         </div>
