@@ -3,9 +3,10 @@ import { FinanceProvider, useFinance } from './contexts/FinanceContext';
 import { getCurrentUser, setCurrentUser as saveCurrentUser } from './utils/storage';
 import { useChargesFixes } from './hooks/useChargesFixes';
 import { useConfirmationTransactions } from './hooks/useConfirmationTransactions';
-import { usePrevisionnelCalculations } from './hooks/usePrevisionnelCalculations'; // ✅ AJOUT
+import { usePrevisionnelCalculations } from './hooks/usePrevisionnelCalculations';
 import { Notification } from './components/Common/Notification';
 import { ConfirmationTransactionsModal } from './components/Common/ConfirmationTransactionsModal';
+import { AccountMappingModal } from './components/Bank/AccountMappingModal';
 import { Header } from './components/Layout/Header';
 import { LoginForm } from './components/Auth/LoginForm';
 import { SignupForm } from './components/Auth/SignupForm';
@@ -53,7 +54,6 @@ function AppContent() {
   const { genererTransactionsChargesFixes } = useChargesFixes();
   const { transactionsAConfirmer, marquerRealisee, reporter, annuler } = useConfirmationTransactions();
   
-  // ✅ AJOUT : Calcul automatique du prévisionnel
   usePrevisionnelCalculations();
 
   const [showAuth, setShowAuth] = useState(false);
@@ -63,6 +63,107 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [notification, setNotification] = useState(null);
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
+  const [showAccountMapping, setShowAccountMapping] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState([]);
+
+  // ✅ NOUVEAU : Gérer le mapping des comptes
+  const handleMappingConfirm = (mapping) => {
+    console.log('🟢 handleMappingConfirm APPELÉ !');
+    console.log('mapping:', mapping);
+    console.log('comptes AVANT:', comptes);
+    
+    const updatedComptes = [...comptes];
+    const bankTransactions = localStorage.getItem(`bank_transactions_${currentUser}`);
+    
+    if (!bankTransactions) {
+      console.error('❌ Aucune transaction bancaire trouvée');
+      return;
+    }
+    
+    const parsedTransactions = JSON.parse(bankTransactions);
+    console.log('📦 Transactions bancaires récupérées:', parsedTransactions.length);
+    
+    // ✅ CRÉER LE MAPPING : accountId Bridge → nom compte utilisateur
+    const accountMapping = {};
+    
+    Object.entries(mapping).forEach(([accountId, accountInfo]) => {
+      if (accountInfo.action === 'new') {
+        // Créer nouveau compte
+        const newCompte = {
+          id: Date.now() + Math.random(),
+          nom: accountInfo.newName,
+          type: 'courant',
+          solde: 0,
+          soldeInitial: 0,
+          devise: 'EUR',
+          isSynced: true,
+          bridgeAccountId: accountId
+        };
+        updatedComptes.push(newCompte);
+        accountMapping[accountId] = accountInfo.newName;
+        
+      } else if (accountInfo.action === 'existing') {
+        // Lier à compte existant
+        const existingCompte = updatedComptes.find(c => c.id === accountInfo.existingId);
+        if (existingCompte) {
+          existingCompte.isSynced = true;
+          existingCompte.bridgeAccountId = accountId;
+          accountMapping[accountId] = existingCompte.nom;
+        }
+      }
+    });
+    
+    console.log('🗺️ Mapping créé:', accountMapping);
+    console.log('updatedComptes APRÈS:', updatedComptes);
+    
+    // ✅ RÉASSIGNER TOUTES LES TRANSACTIONS AU BON COMPTE
+    const transactionsAvecComptes = parsedTransactions.map(t => {
+      const nomCompte = accountMapping[t.account_id];
+      
+      if (!nomCompte) {
+        console.warn('⚠️ Transaction sans mapping:', t.account_id, t);
+      }
+      
+      return {
+        ...t,
+        compte: nomCompte || 'Compte inconnu'
+      };
+    });
+    
+    console.log('✅ Transactions réassignées (5 premières):', transactionsAvecComptes.slice(0, 5).map(t => ({
+      id: t.bridgeId,
+      compte: t.compte,
+      montant: t.montant
+    })));
+    
+    // Mettre à jour les comptes
+    setComptes(updatedComptes);
+    
+    // Sauvegarder les transactions avec les bons comptes
+    const existingTransactions = transactions || [];
+    const newTransactions = transactionsAvecComptes.filter(newT => 
+      !existingTransactions.some(existT => existT.bridgeId === newT.bridgeId)
+    );
+    
+    const allTransactions = [...existingTransactions, ...newTransactions];
+    setTransactions(allTransactions);
+    
+    console.log('💾 Sauvegarde de', allTransactions.length, 'transactions');
+    console.log('Dont', newTransactions.length, 'nouvelles');
+    
+    // Nettoyer le localStorage temporaire
+    localStorage.removeItem(`bank_transactions_${currentUser}`);
+    localStorage.removeItem(`bank_accounts_${currentUser}`);
+    
+    setShowAccountMapping(false);
+    
+    setNotification({ 
+      type: 'success', 
+      message: `✅ ${newTransactions.length} transaction(s) synchronisée(s) !` 
+    });
+    
+    setActiveTab('transactions');
+  };
 
   // Gérer le callback Bridge
   useEffect(() => {
@@ -108,38 +209,21 @@ function AppContent() {
           if (!syncResponse.ok) throw new Error('Erreur synchronisation');
 
           const syncData = await syncResponse.json();
-          console.log('✅ Transactions reçues:', syncData);
+          console.log('✅ Données sync reçues:', syncData);
 
           if (syncData.transactions && syncData.transactions.length > 0) {
-            const existingTransactions = transactions || [];
-            const bridgeIds = new Set(
-              existingTransactions
-                .filter(t => t.bridgeId)
-                .map(t => t.bridgeId)
-            );
-
-            const newTransactions = syncData.transactions.filter(
-              t => !bridgeIds.has(t.bridgeId)
-            );
-
-            if (newTransactions.length > 0) {
-              const updatedTransactions = [...existingTransactions, ...newTransactions];
-              setTransactions(updatedTransactions);
-              
-              console.log(`✅ ${newTransactions.length} nouvelles transactions ajoutées`);
-              
-              setNotification({ 
-                type: 'success', 
-                message: `✅ ${newTransactions.length} transaction(s) synchronisée(s) !` 
-              });
-              
-              setActiveTab('transactions');
-            } else {
-              setNotification({ 
-                type: 'info', 
-                message: 'ℹ️ Aucune nouvelle transaction' 
-              });
-            }
+            // ✅ Stocker temporairement les transactions et comptes
+            localStorage.setItem(`bank_transactions_${userId}`, JSON.stringify(syncData.transactions));
+            localStorage.setItem(`bank_accounts_${userId}`, JSON.stringify(syncData.accounts || []));
+            
+            // ✅ Afficher la modale de mapping
+            setBankAccounts(syncData.accounts || []);
+            setShowAccountMapping(true);
+          } else {
+            setNotification({ 
+              type: 'info', 
+              message: 'ℹ️ Aucune transaction trouvée' 
+            });
           }
         }
 
@@ -375,13 +459,27 @@ function AppContent() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <Notification notification={notification} onClose={() => setNotification(null)} />
       
-      {/* 🆕 MODAL CONFIRMATION TRANSACTIONS */}
+      {/* MODAL CONFIRMATION TRANSACTIONS */}
       {transactionsAConfirmer.length > 0 && (
         <ConfirmationTransactionsModal
           transactions={transactionsAConfirmer}
           onConfirm={marquerRealisee}
           onReporter={reporter}
           onAnnuler={annuler}
+        />
+      )}
+
+      {/* ✅ NOUVELLE MODAL : MAPPING DES COMPTES */}
+      {showAccountMapping && (
+        <AccountMappingModal
+          bankAccounts={bankAccounts}
+          existingComptes={comptes}
+          onConfirm={handleMappingConfirm}
+          onCancel={() => {
+            setShowAccountMapping(false);
+            localStorage.removeItem(`bank_transactions_${currentUser}`);
+            localStorage.removeItem(`bank_accounts_${currentUser}`);
+          }}
         />
       )}
       
