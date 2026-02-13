@@ -1,11 +1,18 @@
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useFinance } from '../../contexts/FinanceContext';
+import { useStatistiques } from '../../hooks/useStatistiques';
 
 export const GraphiqueSolde = () => {
-  const { comptes, transactions } = useFinance();
+  const { comptes, transactions, vueTableauBord, compteSelectionne } = useFinance();
+  
+  // ✅ RÉCUPÉRER LE MÊME COMPTE que useStatistiques
+  const stats = useStatistiques(transactions, comptes, vueTableauBord, compteSelectionne);
+  const compteActuel = stats.compteCourant;
 
   const data = useMemo(() => {
+    if (!compteActuel) return [];
+    
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     const anneeActuelle = new Date().getFullYear();
     
@@ -14,43 +21,32 @@ export const GraphiqueSolde = () => {
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     };
     
-    const soldeInitial = comptes.reduce((sum, c) => sum + (c.soldeInitial || 0), 0);
+    // ✅ SOLDE INITIAL DU COMPTE SÉLECTIONNÉ (pas tous les comptes)
+    const soldeInitial = compteActuel.soldeInitial || 0;
     
     return mois.map((nom, moisIndex) => {
       const finMoisNorm = new Date(anneeActuelle, moisIndex + 1, 0, 23, 59, 59);
       
-      // SOLDE RÉEL
+      // ✅ FILTRE SUR LE COMPTE SÉLECTIONNÉ
       const transactionsRealisees = (transactions || []).filter(t => {
         const dateT = normaliserDate(t.date);
-        return dateT <= finMoisNorm && t.statut === 'realisee';
+        return dateT <= finMoisNorm && 
+               t.statut === 'realisee' && 
+               t.compte === compteActuel.nom;  // ✅ AJOUT FILTRE
       });
       
       const mouvementsReels = transactionsRealisees.reduce((sum, t) => sum + t.montant, 0);
       const soldeReel = soldeInitial + mouvementsReels;
       
-      // SOLDE PRÉVISIONNEL
+      // ✅ FILTRE SUR LE COMPTE SÉLECTIONNÉ
       const toutesTransactions = (transactions || []).filter(t => {
         const dateT = normaliserDate(t.date);
-        return dateT <= finMoisNorm;
+        return dateT <= finMoisNorm && 
+               t.compte === compteActuel.nom;  // ✅ AJOUT FILTRE
       });
       
       const mouvementsPrevus = toutesTransactions.reduce((sum, t) => sum + t.montant, 0);
       const soldePrevu = soldeInitial + mouvementsPrevus;
-      
-      // ✅ DEBUG TEMPORAIRE (dernier mois de la période)
-      if (moisIndex === 11 || moisIndex === new Date().getMonth()) {
-        console.log('=== DEBUG GRAPHIQUE SOLDE ===');
-        console.log('Mois:', nom, '(index', moisIndex + ')');
-        console.log('Solde initial TOTAL comptes:', soldeInitial);
-        console.log('Fin mois normalisée:', finMoisNorm.toLocaleDateString('fr-FR'));
-        console.log('Transactions réalisées:', transactionsRealisees.length, transactionsRealisees.map(t => `${t.date}: ${t.montant}€`));
-        console.log('Toutes transactions:', toutesTransactions.length, toutesTransactions.map(t => `${t.date}: ${t.montant}€ (${t.statut})`));
-        console.log('Mouvements réels:', mouvementsReels);
-        console.log('Mouvements prévus:', mouvementsPrevus);
-        console.log('SOLDE RÉEL:', soldeReel);
-        console.log('SOLDE PRÉVU GRAPHIQUE:', soldePrevu);
-        console.log('============================');
-      }
       
       return {
         mois: nom,
@@ -58,7 +54,15 @@ export const GraphiqueSolde = () => {
         'Solde Prévisionnel': Math.round(soldePrevu)
       };
     });
-  }, [comptes, transactions]);
+  }, [comptes, transactions, compteActuel]);
+
+  if (!compteActuel) {
+    return (
+      <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
+        <p className="text-gray-500 text-center">Aucun compte sélectionné</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
@@ -66,7 +70,9 @@ export const GraphiqueSolde = () => {
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           📊 Évolution du Solde
         </h3>
-        <p className="text-sm text-gray-600">Comparaison Prévisionnel vs Réel (Cumulé)</p>
+        <p className="text-sm text-gray-600">
+          Comparaison Prévisionnel vs Réel (Cumulé) - {compteActuel.nom}
+        </p>
       </div>
       
       <ResponsiveContainer width="100%" height={250}>
