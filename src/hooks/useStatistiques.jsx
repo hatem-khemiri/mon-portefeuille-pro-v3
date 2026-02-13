@@ -147,20 +147,19 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
     const mouvementsTotaux = toutesTransactionsPeriode.reduce((acc, t) => acc + (t.montant || 0), 0);
     const soldePrevisionnel = soldeDebut + mouvementsTotaux;
     
-    // ✅ DEBUG TEMPORAIRE
-    console.log('=== DEBUG SOLDE PRÉVISIONNEL (useStatistiques) ===');
+    // ✅ DEBUG
+    console.log('🔵 CARTE SOLDE (useStatistiques)');
     console.log('Vue:', vueTableauBord);
     console.log('Compte:', compteActuel.nom);
     console.log('Solde initial compte:', soldeInitialCompte);
     console.log('Solde début période:', soldeDebut);
     console.log('Date début:', dateDebut.toLocaleDateString('fr-FR'));
     console.log('Date fin prévue:', dateFinPrevue.toLocaleDateString('fr-FR'));
-    console.log('Transactions réalisées période:', transactionsPeriode.length, transactionsPeriode.map(t => `${t.date}: ${t.montant}€`));
-    console.log('Transactions à venir période:', transactionsAVenir.length, transactionsAVenir.map(t => `${t.date}: ${t.montant}€`));
-    console.log('Toutes transactions période:', toutesTransactionsPeriode.length, toutesTransactionsPeriode.map(t => `${t.date}: ${t.montant}€ (${t.statut})`));
+    console.log('Toutes transactions période:', toutesTransactionsPeriode.length);
+    console.log('Détail transactions (5 premières):', toutesTransactionsPeriode.slice(0, 5).map(t => `${t.date}: ${t.montant}€ (${t.statut})`));
     console.log('Mouvements totaux:', mouvementsTotaux);
-    console.log('SOLDE PRÉVISIONNEL FINAL:', soldePrevisionnel);
-    console.log('================================================');
+    console.log('SOLDE PRÉVISIONNEL CARTE:', soldePrevisionnel);
+    console.log('================');
     
     return {
       soldeDebut,

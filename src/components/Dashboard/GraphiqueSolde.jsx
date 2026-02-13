@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useFinance } from '../../contexts/FinanceContext';
-import { useStatistiques } from '../../hooks/useStatistiques';
 
 export const GraphiqueSolde = () => {
   const { comptes, transactions } = useFinance();
@@ -15,13 +14,13 @@ export const GraphiqueSolde = () => {
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     };
     
-    // ✅ RÉCUPÉRER TOUS LES COMPTES pour le solde initial
+    // ✅ SOLDE INITIAL TOTAL (TOUS COMPTES)
     const soldeInitial = comptes.reduce((sum, c) => sum + (c.soldeInitial || 0), 0);
     
     return mois.map((nom, moisIndex) => {
       const finMoisNorm = new Date(anneeActuelle, moisIndex + 1, 0, 23, 59, 59);
       
-      // SOLDE RÉEL = toutes transactions réalisées jusqu'au mois
+      // SOLDE RÉEL (TOUS COMPTES)
       const transactionsRealisees = (transactions || []).filter(t => {
         const dateT = normaliserDate(t.date);
         return dateT <= finMoisNorm && t.statut === 'realisee';
@@ -30,7 +29,7 @@ export const GraphiqueSolde = () => {
       const mouvementsReels = transactionsRealisees.reduce((sum, t) => sum + t.montant, 0);
       const soldeReel = soldeInitial + mouvementsReels;
       
-      // SOLDE PRÉVISIONNEL = toutes transactions (réalisées + à venir) jusqu'au mois
+      // SOLDE PRÉVISIONNEL (TOUS COMPTES)
       const toutesTransactions = (transactions || []).filter(t => {
         const dateT = normaliserDate(t.date);
         return dateT <= finMoisNorm;
@@ -38,6 +37,19 @@ export const GraphiqueSolde = () => {
       
       const mouvementsPrevus = toutesTransactions.reduce((sum, t) => sum + t.montant, 0);
       const soldePrevu = soldeInitial + mouvementsPrevus;
+      
+      // ✅ DEBUG (dernier mois seulement)
+      if (moisIndex === 11 || moisIndex === new Date().getMonth()) {
+        console.log('🟢 GRAPHIQUE SOLDE');
+        console.log('Mois:', nom, '(index', moisIndex, ')');
+        console.log('Solde initial TOTAL (tous comptes):', soldeInitial);
+        console.log('Fin mois normalisée:', finMoisNorm.toLocaleDateString('fr-FR'));
+        console.log('Toutes transactions:', toutesTransactions.length);
+        console.log('Détail transactions (5 premières):', toutesTransactions.slice(0, 5).map(t => `${t.date}: ${t.montant}€ (${t.statut})`));
+        console.log('Mouvements prévus:', mouvementsPrevus);
+        console.log('SOLDE PRÉVU GRAPHIQUE:', soldePrevu);
+        console.log('================');
+      }
       
       return {
         mois: nom,
@@ -53,7 +65,7 @@ export const GraphiqueSolde = () => {
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           📊 Évolution du Solde
         </h3>
-        <p className="text-sm text-gray-600">Comparaison Prévisionnel vs Réel (Cumulé)</p>
+        <p className="text-sm text-gray-600">Comparaison Prévisionnel vs Réel (Tous comptes)</p>
       </div>
       
       <ResponsiveContainer width="100%" height={250}>
