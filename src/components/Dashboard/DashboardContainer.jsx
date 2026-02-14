@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CreditCard, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useStatistiques } from '../../hooks/useStatistiques';
@@ -27,7 +27,38 @@ export const DashboardContainer = () => {
   
   const stats = useStatistiques(transactions, comptes, vueTableauBord, compteSelectionne);
   
-  // ✅ RECALCUL PRÉVISIONNEL TOTAL (réalisé + à venir DANS la période)
+  // ✅ DEBUG : ANALYSER LES TRANSACTIONS
+  useEffect(() => {
+    console.log('🔍 ANALYSE TRANSACTIONS');
+    console.log('Total transactions:', transactions.length);
+    
+    const parCompte = {};
+    const sansCompte = [];
+    
+    transactions.forEach(t => {
+      const compte = t.compte || 'UNDEFINED';
+      parCompte[compte] = (parCompte[compte] || 0) + 1;
+      
+      if (!t.compte) {
+        sansCompte.push(t);
+      }
+    });
+    
+    console.log('Répartition par compte:', parCompte);
+    console.log('Comptes disponibles:', comptes.map(c => c.nom));
+    console.log('Transactions SANS compte:', sansCompte.length);
+    
+    if (sansCompte.length > 0) {
+      console.log('Exemples transactions sans compte (5 premières):', sansCompte.slice(0, 5).map(t => ({
+        id: t.id,
+        date: t.date,
+        montant: t.montant,
+        description: t.description,
+        compte: t.compte
+      })));
+    }
+  }, [transactions, comptes]);
+  
   const statsPrevisionnelles = useMemo(() => {
     const aujourdHui = new Date();
     const moisActuel = aujourdHui.getMonth();
@@ -63,7 +94,6 @@ export const DashboardContainer = () => {
       };
     }
     
-    // TOUTES les transactions de la période (réalisées + à venir)
     const toutesTransactionsPeriode = (transactions || []).filter(t => {
       const dateT = normaliserDate(t.date);
       const dansLaPeriode = dateT >= dateDebutNorm && dateT <= dateFinPrevueNorm;
