@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { checkUserExists } from '../../utils/storage';
 
 export const LoginForm = ({ onLogin, onSwitchToSignup, onForgotPassword }) => {
   const [username, setUsername] = useState('');
@@ -16,12 +15,23 @@ export const LoginForm = ({ onLogin, onSwitchToSignup, onForgotPassword }) => {
       return;
     }
 
+    // ✅ VÉRIFICATION EN 2 ÉTAPES
     const storedPassword = localStorage.getItem(`user_${username}`);
-    if (storedPassword === password) {
-      onLogin(username);
-    } else {
-      setError('Identifiants incorrects');
+    
+    // 1. Vérifier si l'utilisateur existe
+    if (!storedPassword) {
+      setError('Utilisateur introuvable');
+      return;
     }
+    
+    // 2. Vérifier si le mot de passe est correct
+    if (storedPassword !== password) {
+      setError('Mot de passe incorrect');
+      return;
+    }
+    
+    // ✅ Connexion réussie
+    onLogin(username);
   };
 
   return (
