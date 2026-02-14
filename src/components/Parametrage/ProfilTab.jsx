@@ -79,11 +79,6 @@ export const ProfilTab = ({ onExport, onLogout }) => {
   };
 
   const handlePasswordChange = () => {
-    console.log('🔐 DEBUG CHANGEMENT MOT DE PASSE');
-    console.log('Utilisateur:', currentUser);
-    console.log('Mot de passe saisi (actuel):', passwordForm.currentPassword);
-    console.log('Nouveau mot de passe:', passwordForm.newPassword);
-    
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
       alert('❌ Veuillez remplir tous les champs');
       return;
@@ -99,43 +94,22 @@ export const ProfilTab = ({ onExport, onLogout }) => {
       return;
     }
 
-    // Vérifier le mot de passe actuel
-    const securityData = localStorage.getItem(`security_${currentUser}`);
-    console.log('Données security brutes:', securityData);
+    // ✅ CORRECTION : Récupérer le mot de passe depuis user_${currentUser}
+    const currentStoredPassword = localStorage.getItem(`user_${currentUser}`);
     
-    if (!securityData) {
-      console.warn('⚠️ Pas de security_${currentUser} trouvé !');
-      alert('❌ Erreur : données de sécurité introuvables. Votre compte a peut-être été créé avant la mise en place du système de mot de passe.');
+    if (!currentStoredPassword) {
+      alert('❌ Erreur : mot de passe introuvable');
       return;
     }
-
-    let currentStoredPassword;
-    try {
-      const parsed = JSON.parse(securityData);
-      currentStoredPassword = parsed.password;
-      console.log('Mot de passe stocké:', currentStoredPassword);
-    } catch (e) {
-      console.error('❌ Erreur parsing security data:', e);
-      alert('❌ Erreur : données de sécurité corrompues');
-      return;
-    }
-    
-    console.log('Comparaison:');
-    console.log('  Saisi:', passwordForm.currentPassword);
-    console.log('  Stocké:', currentStoredPassword);
-    console.log('  Match:', passwordForm.currentPassword === currentStoredPassword);
     
     if (passwordForm.currentPassword !== currentStoredPassword) {
       alert('❌ Mot de passe actuel incorrect');
       return;
     }
 
-    // Mettre à jour le mot de passe
-    localStorage.setItem(`security_${currentUser}`, JSON.stringify({
-      password: passwordForm.newPassword
-    }));
+    // ✅ Mettre à jour le mot de passe dans user_${currentUser}
+    localStorage.setItem(`user_${currentUser}`, passwordForm.newPassword);
 
-    console.log('✅ Mot de passe mis à jour');
     alert('✅ Mot de passe modifié avec succès !');
     setPasswordForm({
       currentPassword: '',
