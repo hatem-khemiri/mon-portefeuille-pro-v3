@@ -79,6 +79,11 @@ export const ProfilTab = ({ onExport, onLogout }) => {
   };
 
   const handlePasswordChange = () => {
+    console.log('🔐 DEBUG CHANGEMENT MOT DE PASSE');
+    console.log('Utilisateur:', currentUser);
+    console.log('Mot de passe saisi (actuel):', passwordForm.currentPassword);
+    console.log('Nouveau mot de passe:', passwordForm.newPassword);
+    
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
       alert('❌ Veuillez remplir tous les champs');
       return;
@@ -96,12 +101,29 @@ export const ProfilTab = ({ onExport, onLogout }) => {
 
     // Vérifier le mot de passe actuel
     const securityData = localStorage.getItem(`security_${currentUser}`);
+    console.log('Données security brutes:', securityData);
+    
     if (!securityData) {
-      alert('❌ Erreur : données de sécurité introuvables');
+      console.warn('⚠️ Pas de security_${currentUser} trouvé !');
+      alert('❌ Erreur : données de sécurité introuvables. Votre compte a peut-être été créé avant la mise en place du système de mot de passe.');
       return;
     }
 
-    const { password: currentStoredPassword } = JSON.parse(securityData);
+    let currentStoredPassword;
+    try {
+      const parsed = JSON.parse(securityData);
+      currentStoredPassword = parsed.password;
+      console.log('Mot de passe stocké:', currentStoredPassword);
+    } catch (e) {
+      console.error('❌ Erreur parsing security data:', e);
+      alert('❌ Erreur : données de sécurité corrompues');
+      return;
+    }
+    
+    console.log('Comparaison:');
+    console.log('  Saisi:', passwordForm.currentPassword);
+    console.log('  Stocké:', currentStoredPassword);
+    console.log('  Match:', passwordForm.currentPassword === currentStoredPassword);
     
     if (passwordForm.currentPassword !== currentStoredPassword) {
       alert('❌ Mot de passe actuel incorrect');
@@ -113,6 +135,7 @@ export const ProfilTab = ({ onExport, onLogout }) => {
       password: passwordForm.newPassword
     }));
 
+    console.log('✅ Mot de passe mis à jour');
     alert('✅ Mot de passe modifié avec succès !');
     setPasswordForm({
       currentPassword: '',
@@ -182,19 +205,19 @@ export const ProfilTab = ({ onExport, onLogout }) => {
                     value={passwordForm.currentPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                     className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
-                    placeholder="••••••••"
+                    placeholder="••••"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nouveau mot de passe
+                    Nouveau mot de passe (min. 4 caractères)
                   </label>
                   <input
                     type="password"
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                     className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
-                    placeholder="••••••••"
+                    placeholder="••••"
                   />
                 </div>
                 <div>
@@ -206,7 +229,7 @@ export const ProfilTab = ({ onExport, onLogout }) => {
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                     className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
-                    placeholder="••••••••"
+                    placeholder="••••"
                   />
                 </div>
                 <div className="flex gap-2">
