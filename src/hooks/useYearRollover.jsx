@@ -5,7 +5,6 @@ export const useYearRollover = () => {
   const { currentUser, comptes, setComptes, transactions, isRolloverInProgressRef } = useFinance();
   
   const processedAccountsRef = useRef(new Set());
-  const lastTransactionsCountRef = useRef(0);
 
   useEffect(() => {
     if (!currentUser || !comptes || comptes.length === 0 || !transactions) return;
@@ -20,7 +19,6 @@ export const useYearRollover = () => {
       console.log('🔄 Vérification report annuel...');
       console.log('Année actuelle:', anneeActuelle);
       console.log('Dernier report global:', lastYear);
-      console.log('Transactions totales:', transactions.length);
 
       let needsUpdate = false;
       let updatedComptes = [...comptes];
@@ -61,31 +59,11 @@ export const useYearRollover = () => {
         needsUpdate = true;
       }
 
-      // ✅ CAS 3 : Transactions ajoutées à des comptes existants avec historique
-      const transactionsCountChanged = transactions.length !== lastTransactionsCountRef.current;
-      
-      if (transactionsCountChanged) {
-        console.log(`📊 Changement nombre transactions détecté (${lastTransactionsCountRef.current} → ${transactions.length})`);
-        
-        // Vérifier si des comptes ont des transactions dans des années antérieures
-        updatedComptes.forEach((compte, index) => {
-          const needsRecalc = checkIfAccountNeedsRecalculation(compte, anneeActuelle);
-          
-          if (needsRecalc) {
-            console.log(`🔄 Recalcul nécessaire pour "${compte.nom}"`);
-            const compteTraite = performAccountRollover(compte, anneeActuelle);
-            updatedComptes[index] = compteTraite;
-            needsUpdate = true;
-          }
-        });
-        
-        lastTransactionsCountRef.current = transactions.length;
-      }
-
       // ✅ Sauvegarder et DÉBLOQUER
       if (needsUpdate) {
         setComptes(updatedComptes);
         
+        // ✅ Attendre que setComptes soit appliqué, PUIS débloquer la sauvegarde
         setTimeout(() => {
           isRolloverInProgressRef.current = false;
           console.log('✅ Rollover terminé, sauvegarde débloquée');
@@ -93,44 +71,6 @@ export const useYearRollover = () => {
       } else {
         isRolloverInProgressRef.current = false;
       }
-    };
-
-    const checkIfAccountNeedsRecalculation = (compte, anneeActuelle) => {
-      const normaliserDate = (date) => {
-        const d = new Date(date);
-        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      };
-
-      const transactionsCompte = (transactions || []).filter(t => 
-        t.compte === compte.nom && t.statut === 'realisee'
-      );
-
-      if (transactionsCompte.length === 0) return false;
-
-      // Vérifier s'il y a des transactions dans des années antérieures
-      const hasHistoricalTransactions = transactionsCompte.some(t => {
-        const anneeT = normaliserDate(t.date).getFullYear();
-        return anneeT < anneeActuelle;
-      });
-
-      if (!hasHistoricalTransactions) return false;
-
-      // Calculer ce que devrait être le solde initial
-      const premiereAnnee = Math.min(...transactionsCompte.map(t => normaliserDate(t.date).getFullYear()));
-      
-      let soldeCalcule = compte.soldeInitial || 0;
-      for (let annee = premiereAnnee; annee < anneeActuelle; annee++) {
-        const transactionsAnnee = transactionsCompte.filter(t => {
-          const dateT = normaliserDate(t.date);
-          return dateT.getFullYear() === annee;
-        });
-        
-        soldeCalcule += transactionsAnnee.reduce((sum, t) => sum + (t.montant || 0), 0);
-      }
-
-      // Si le solde calculé est différent du solde actuel, recalcul nécessaire
-      const difference = Math.abs(soldeCalcule - (compte.soldeInitial || 0));
-      return difference > 0.01; // Tolérance pour erreurs d'arrondi
     };
 
     const performGlobalYearRollover = (previousYear, comptesArray) => {
@@ -171,7 +111,7 @@ export const useYearRollover = () => {
     };
 
     const performAccountRollover = (compte, anneeActuelle) => {
-      console.log(`🔄 Traitement compte "${compte.nom}"...`);
+      console.log(`🔄 Traitement nouveau compte "${compte.nom}"...`);
 
       const normaliserDate = (date) => {
         const d = new Date(date);
@@ -183,7 +123,7 @@ export const useYearRollover = () => {
       const transactionsCompte = (transactions || []).filter(t => t.compte === compte.nom && t.statut === 'realisee');
       
       if (transactionsCompte.length === 0) {
-        console.log(`  Aucune transaction pour ${compte.nom}`);
+        console.log(`  Aucune transaction historique pour ${compte.nom}`);
         return compte;
       }
 
@@ -191,10 +131,6 @@ export const useYearRollover = () => {
       
       console.log(`  Première transaction: ${premiereAnnee}`);
       console.log(`  Année actuelle: ${anneeActuelle}`);
-
-      // Réinitialiser au solde initial d'origine (au moment de la création du compte)
-      const soldeOriginal = compte.soldeInitial || 0;
-      soldeInitialCalcule = soldeOriginal;
 
       for (let annee = premiereAnnee; annee < anneeActuelle; annee++) {
         const transactionsAnnee = transactionsCompte.filter(t => {
@@ -209,10 +145,10 @@ export const useYearRollover = () => {
 
         soldeInitialCalcule += mouvementsAnnee;
         
-        console.log(`  ${annee}: ${transactionsAnnee.length} transactions, mouvements: ${mouvementsAnnee}€, solde: ${soldeInitialCalcule}€`);
+        console.log(`  ${annee}: ${transactionsAnnee.length} transactions, mouvements: ${mouvementsAnnee}€`);
       }
 
-      console.log(`  → Solde initial pour ${anneeActuelle}: ${soldeInitialCalcule}€`);
+      console.log(`  → Solde initial calculé pour ${anneeActuelle}: ${soldeInitialCalcule}€`);
 
       return {
         ...compte,
