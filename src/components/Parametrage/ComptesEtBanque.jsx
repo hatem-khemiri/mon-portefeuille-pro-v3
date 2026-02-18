@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { BankConnection } from '../Bank/BankConnection';
-import { Plus, Edit2, Trash2, Eye, EyeOff, CreditCard, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, EyeOff, CreditCard, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 
 export const ComptesEtBanque = () => {
   const { comptes, setComptes, transactions, setTransactions, currentUser } = useFinance();
@@ -22,6 +22,28 @@ export const ComptesEtBanque = () => {
     { value: 'investissement', label: '📈 Investissement', icon: TrendingUp }
   ];
 
+  // ✅ CALCUL DU SOLDE ACTUEL (identique au Dashboard)
+  const soldesActuels = useMemo(() => {
+    const soldes = {};
+    
+    comptes.forEach(compte => {
+      const anneeActuelle = new Date().getFullYear();
+      
+      // Transactions réalisées de l'année en cours
+      const transactionsCompte = (transactions || []).filter(t => {
+        const dateT = new Date(t.date);
+        return dateT.getFullYear() === anneeActuelle &&
+               t.compte === compte.nom &&
+               t.statut === 'realisee';
+      });
+      
+      const mouvements = transactionsCompte.reduce((sum, t) => sum + (t.montant || 0), 0);
+      soldes[compte.id] = (compte.soldeInitial || 0) + mouvements;
+    });
+    
+    return soldes;
+  }, [comptes, transactions]);
+
   const handleSubmit = () => {
     if (!formData.nom) {
       alert('❌ Veuillez entrer un nom de compte');
@@ -31,15 +53,26 @@ export const ComptesEtBanque = () => {
     if (editingId) {
       setComptes(comptes.map(c => 
         c.id === editingId 
-          ? { ...c, ...formData, solde: parseFloat(formData.solde) || 0 }
+          ? { 
+              ...c, 
+              nom: formData.nom,
+              type: formData.type,
+              devise: formData.devise,
+              masque: formData.masque,
+              // Ne pas toucher solde et soldeInitial lors de l'édition
+            }
           : c
       ));
     } else {
       const newCompte = {
         id: Date.now(),
-        ...formData,
+        nom: formData.nom,
+        type: formData.type,
+        devise: formData.devise || 'EUR',
+        masque: formData.masque,
         solde: parseFloat(formData.solde) || 0,
-        soldeInitial: parseFloat(formData.solde) || 0
+        soldeInitial: parseFloat(formData.solde) || 0,
+        dateCreation: new Date().toISOString()
       };
       setComptes([...comptes, newCompte]);
     }
@@ -60,7 +93,7 @@ export const ComptesEtBanque = () => {
     setFormData({
       nom: compte.nom,
       type: compte.type,
-      solde: compte.solde.toString(),
+      solde: '', // Ne pas permettre de modifier le solde
       devise: compte.devise || 'EUR',
       masque: compte.masque || false
     });
@@ -99,7 +132,7 @@ export const ComptesEtBanque = () => {
     }
   };
 
-  const totalSolde = comptes.reduce((sum, c) => sum + (c.solde || 0), 0);
+  const totalSoldeActuel = Object.values(soldesActuels).reduce((sum, solde) => sum + solde, 0);
 
   return (
     <div className="space-y-6">
@@ -162,19 +195,24 @@ export const ComptesEtBanque = () => {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Solde initial (€)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.solde}
-                  onChange={(e) => setFormData({ ...formData, solde: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                />
-              </div>
+              
+              {/* Solde initial seulement à la création */}
+              {!editingId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Solde initial (€)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.solde}
+                    onChange={(e) => setFormData({ ...formData, solde: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              )}
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Devise
@@ -242,8 +280,8 @@ export const ComptesEtBanque = () => {
             <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-4 mb-4 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm opacity-90">Solde total</p>
-                  <p className="text-3xl font-bold">{totalSolde.toFixed(2)} €</p>
+                  <p className="text-sm opacity-90">Solde total actuel</p>
+                  <p className="text-3xl font-bold">{totalSoldeActuel.toFixed(2)} €</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm opacity-90">{comptes.length} compte{comptes.length > 1 ? 's' : ''}</p>
@@ -254,62 +292,96 @@ export const ComptesEtBanque = () => {
 
             {/* Cartes des comptes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {comptes.map((compte) => (
-                <div
-                  key={compte.id}
-                  className={`rounded-xl p-4 border-2 transition-all ${
-                    compte.masque 
-                      ? 'bg-gray-100 border-gray-300 opacity-60' 
-                      : 'bg-gradient-to-br from-white to-gray-50 border-gray-200 hover:shadow-lg'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-bold text-gray-800">{compte.nom}</h4>
-                        {compte.masque && <EyeOff size={14} className="text-gray-500" />}
-                        {compte.isSynced && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Synchronisé</span>}
-                      </div>
-                      <p className="text-xs text-gray-600">
-                        {typesCompte.find(t => t.value === compte.type)?.label || compte.type}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleEdit(compte)}
-                        className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(compte.id)}
-                        className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-gray-500">Solde actuel</p>
-                      <p className={`text-2xl font-bold ${compte.solde >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {compte.solde?.toFixed(2)} {compte.devise || '€'}
-                      </p>
-                    </div>
-                    {compte.solde !== compte.soldeInitial && (
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500">Évolution</p>
-                        <p className={`text-sm font-medium flex items-center gap-1 ${
-                          (compte.solde - compte.soldeInitial) >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {(compte.solde - compte.soldeInitial) >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                          {Math.abs(compte.solde - compte.soldeInitial).toFixed(2)} €
+              {comptes.map((compte) => {
+                const soldeActuel = soldesActuels[compte.id] || 0;
+                
+                return (
+                  <div
+                    key={compte.id}
+                    className={`rounded-xl p-4 border-2 transition-all ${
+                      compte.masque 
+                        ? 'bg-gray-100 border-gray-300 opacity-60' 
+                        : 'bg-gradient-to-br from-white to-gray-50 border-gray-200 hover:shadow-lg'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-bold text-gray-800">{compte.nom}</h4>
+                          {compte.masque && <EyeOff size={14} className="text-gray-500" />}
+                          {compte.isSynced && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Synchronisé</span>}
+                        </div>
+                        <p className="text-xs text-gray-600">
+                          {typesCompte.find(t => t.value === compte.type)?.label || compte.type}
                         </p>
                       </div>
-                    )}
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEdit(compte)}
+                          className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(compte.id)}
+                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ✅ NOUVEAU FORMAT : Date création + Solde initial + Solde actuel */}
+                    <div className="space-y-2 border-t border-gray-200 pt-3">
+                      {/* Date de création */}
+                      {compte.dateCreation && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500 flex items-center gap-1">
+                            <Calendar size={12} />
+                            Créé le
+                          </span>
+                          <span className="text-gray-700 font-medium">
+                            {new Date(compte.dateCreation).toLocaleDateString('fr-FR', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric'
+                            })}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Solde initial */}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">Solde initial</span>
+                        <span className="text-gray-700 font-medium">
+                          {(compte.soldeInitial || 0).toFixed(2)} {compte.devise || '€'}
+                        </span>
+                      </div>
+
+                      {/* Solde actuel */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 font-medium">Solde actuel</span>
+                        <span className={`text-2xl font-bold ${soldeActuel >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {soldeActuel.toFixed(2)} {compte.devise || '€'}
+                        </span>
+                      </div>
+
+                      {/* Évolution */}
+                      {soldeActuel !== (compte.soldeInitial || 0) && (
+                        <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-100">
+                          <span className="text-gray-500">Évolution</span>
+                          <span className={`font-medium flex items-center gap-1 ${
+                            (soldeActuel - (compte.soldeInitial || 0)) >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {(soldeActuel - (compte.soldeInitial || 0)) >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                            {Math.abs(soldeActuel - (compte.soldeInitial || 0)).toFixed(2)} €
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}
@@ -322,6 +394,8 @@ export const ComptesEtBanque = () => {
           <li>• <strong>Synchronisation bancaire :</strong> Connectez votre banque pour importer automatiquement vos transactions</li>
           <li>• <strong>Déconnexion :</strong> Supprime la connexion ET toutes les transactions synchronisées</li>
           <li>• <strong>Comptes manuels :</strong> Ajoutez des comptes non synchronisés (espèces, comptes non supportés)</li>
+          <li>• <strong>Solde initial :</strong> Point de départ du compte lors de sa création (ne change pas sauf report annuel)</li>
+          <li>• <strong>Solde actuel :</strong> Solde initial + toutes les transactions réalisées de l'année en cours</li>
           <li>• <strong>Masquer un compte :</strong> Exclut le compte des statistiques globales sans le supprimer</li>
         </ul>
       </div>
