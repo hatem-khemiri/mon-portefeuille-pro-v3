@@ -1,11 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFinance } from '../contexts/FinanceContext';
 
 export const useYearRollover = () => {
   const { currentUser, comptes, setComptes, transactions } = useFinance();
+  
+  // ✅ Garde trace des comptes déjà traités pour éviter de les retraiter
+  const processedAccountsRef = useRef(new Set());
 
   useEffect(() => {
-    if (!currentUser || !comptes || comptes.length === 0) return;
+    if (!currentUser || !comptes || comptes.length === 0 || !transactions) return;
 
     const checkAndRollover = () => {
       const aujourdHui = new Date();
@@ -17,29 +20,63 @@ export const useYearRollover = () => {
 
       console.log('🔄 Vérification report annuel...');
       console.log('Année actuelle:', anneeActuelle);
-      console.log('Dernier report:', lastYear);
+      console.log('Dernier report global:', lastYear);
 
-      // Si on est dans une nouvelle année et qu'on n'a pas encore fait le report
+      let needsUpdate = false;
+      let updatedComptes = [...comptes];
+
+      // ✅ CAS 1 : Changement d'année global (tous les comptes)
       if (lastYear && lastYear < anneeActuelle) {
         console.log(`📅 Changement d'année détecté : ${lastYear} → ${anneeActuelle}`);
-        performYearRollover(lastYear);
+        updatedComptes = performGlobalYearRollover(lastYear, updatedComptes);
+        needsUpdate = true;
+        
+        // Marquer l'année comme traitée
+        localStorage.setItem(`last_rollover_${currentUser}`, anneeActuelle.toString());
+        
+        // Marquer tous les comptes comme traités
+        updatedComptes.forEach(c => processedAccountsRef.current.add(c.id));
+        
       } else if (!lastYear) {
-        // Premier chargement : enregistrer l'année actuelle sans report
+        // ✅ Premier chargement : enregistrer l'année actuelle
         console.log('📝 Premier chargement : enregistrement année', anneeActuelle);
         localStorage.setItem(`last_rollover_${currentUser}`, anneeActuelle.toString());
+        comptes.forEach(c => processedAccountsRef.current.add(c.id));
+      }
+
+      // ✅ CAS 2 : Nouveaux comptes créés en cours d'année
+      const newAccounts = updatedComptes.filter(c => !processedAccountsRef.current.has(c.id));
+      
+      if (newAccounts.length > 0) {
+        console.log(`🆕 ${newAccounts.length} nouveau(x) compte(s) détecté(s) :`, newAccounts.map(c => c.nom));
+        
+        newAccounts.forEach(compte => {
+          const compteTraite = performAccountRollover(compte, anneeActuelle, updatedComptes);
+          const index = updatedComptes.findIndex(c => c.id === compte.id);
+          if (index !== -1) {
+            updatedComptes[index] = compteTraite;
+          }
+          processedAccountsRef.current.add(compte.id);
+        });
+        
+        needsUpdate = true;
+      }
+
+      // ✅ Sauvegarder si nécessaire
+      if (needsUpdate) {
+        setComptes(updatedComptes);
       }
     };
 
-    const performYearRollover = (previousYear) => {
-      console.log(`🔄 Report du solde de ${previousYear} vers ${previousYear + 1}...`);
+    const performGlobalYearRollover = (previousYear, comptesArray) => {
+      console.log(`🔄 Report global du solde de ${previousYear} vers ${previousYear + 1}...`);
 
       const normaliserDate = (date) => {
         const d = new Date(date);
         return new Date(d.getFullYear(), d.getMonth(), d.getDate());
       };
 
-      const updatedComptes = comptes.map(compte => {
-        // Calculer le solde final de l'année précédente
+      return comptesArray.map(compte => {
         const transactionsCompte = (transactions || []).filter(t => {
           const dateT = normaliserDate(t.date);
           return dateT.getFullYear() === previousYear && 
@@ -66,16 +103,56 @@ export const useYearRollover = () => {
           solde: soldeFinalAnneePrecedente
         };
       });
+    };
 
-      // Sauvegarder les comptes mis à jour
-      setComptes(updatedComptes);
+    const performAccountRollover = (compte, anneeActuelle, comptesArray) => {
+      console.log(`🔄 Traitement nouveau compte "${compte.nom}"...`);
 
-      // Marquer l'année comme traitée
-      const nouvelleAnnee = previousYear + 1;
-      localStorage.setItem(`last_rollover_${currentUser}`, nouvelleAnnee.toString());
+      const normaliserDate = (date) => {
+        const d = new Date(date);
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      };
 
-      console.log(`✅ Report terminé ! Soldes initiaux mis à jour pour ${nouvelleAnnee}`);
-      // ✅ PAS de notification alert() - Report silencieux
+      // ✅ Calculer le solde pour TOUTES les années précédentes jusqu'à aujourd'hui
+      let soldeInitialCalcule = compte.soldeInitial || 0;
+      
+      // Trouver la plus ancienne transaction de ce compte
+      const transactionsCompte = (transactions || []).filter(t => t.compte === compte.nom && t.statut === 'realisee');
+      
+      if (transactionsCompte.length === 0) {
+        console.log(`  Aucune transaction historique pour ${compte.nom}`);
+        return compte;
+      }
+
+      const premiereAnnee = Math.min(...transactionsCompte.map(t => normaliserDate(t.date).getFullYear()));
+      
+      console.log(`  Première transaction: ${premiereAnnee}`);
+      console.log(`  Année actuelle: ${anneeActuelle}`);
+
+      // Calculer le solde année par année
+      for (let annee = premiereAnnee; annee < anneeActuelle; annee++) {
+        const transactionsAnnee = transactionsCompte.filter(t => {
+          const dateT = normaliserDate(t.date);
+          return dateT.getFullYear() === annee;
+        });
+
+        const mouvementsAnnee = transactionsAnnee.reduce(
+          (sum, t) => sum + (t.montant || 0), 
+          0
+        );
+
+        soldeInitialCalcule += mouvementsAnnee;
+        
+        console.log(`  ${annee}: ${transactionsAnnee.length} transactions, mouvements: ${mouvementsAnnee}€`);
+      }
+
+      console.log(`  → Solde initial calculé pour ${anneeActuelle}: ${soldeInitialCalcule}€`);
+
+      return {
+        ...compte,
+        soldeInitial: soldeInitialCalcule,
+        solde: soldeInitialCalcule
+      };
     };
 
     checkAndRollover();
