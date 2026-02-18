@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useRef } from 'react';
 import { loadUserData, saveUserData } from '../utils/storage';
 import { CATEGORIES_DEPENSES, CATEGORIES_REVENUS, CATEGORIES_EPARGNES } from '../utils/constants';
 
@@ -23,7 +23,7 @@ export const FinanceProvider = ({ children }) => {
   const [epargnes, setEpargnes] = useState([]);
   const [dettes, setDettes] = useState([]);
   const [memos, setMemos] = useState([]);
-  const [memosBudgetaires, setMemosBudgetaires] = useState([]); // 🆕 AJOUTÉ
+  const [memosBudgetaires, setMemosBudgetaires] = useState([]);
   
   // Catégories
   const [categoriesDepenses, setCategoriesDepenses] = useState([...CATEGORIES_DEPENSES]);
@@ -41,6 +41,9 @@ export const FinanceProvider = ({ children }) => {
   const [dateCreationCompte, setDateCreationCompte] = useState(null);
   const [modeCalculPrevisionnel, setModeCalculPrevisionnel] = useState('automatique');
 
+  // ✅ AJOUT : Flag pour éviter la sauvegarde pendant le rollover
+  const isRolloverInProgressRef = useRef(false);
+
   // Charger les données utilisateur
   const loadData = async (username) => {
     const data = loadUserData(username);
@@ -51,7 +54,7 @@ export const FinanceProvider = ({ children }) => {
       setEpargnes(data.epargnes || []);
       setDettes(data.dettes || []);
       setMemos(data.memos || []);
-      setMemosBudgetaires(data.memosBudgetaires || []); // 🆕
+      setMemosBudgetaires(data.memosBudgetaires || []);
       setCategoriesDepenses(data.categoriesDepenses || [...CATEGORIES_DEPENSES]);
       setCategoriesRevenus(data.categoriesRevenus || [...CATEGORIES_REVENUS]);
       setCategoriesEpargnes(data.categoriesEpargnes || [...CATEGORIES_EPARGNES]);
@@ -61,6 +64,12 @@ export const FinanceProvider = ({ children }) => {
 
   // Sauvegarder les données
   useEffect(() => {
+    // ✅ Ne pas sauvegarder si le rollover est en cours
+    if (isRolloverInProgressRef.current) {
+      console.log('⏸️ Sauvegarde suspendue (rollover en cours)');
+      return;
+    }
+
     if (currentUser && !isLoading) {
       const data = {
         onboardingCompleted: true,
@@ -71,7 +80,7 @@ export const FinanceProvider = ({ children }) => {
         epargnes,
         dettes,
         memos,
-        memosBudgetaires, // 🆕
+        memosBudgetaires,
         categoriesDepenses,
         categoriesRevenus,
         categoriesEpargnes
@@ -89,13 +98,14 @@ export const FinanceProvider = ({ children }) => {
     comptes, setComptes, transactions, setTransactions,
     chargesFixes, setChargesFixes, epargnes, setEpargnes,
     dettes, setDettes, memos, setMemos,
-    memosBudgetaires, setMemosBudgetaires, // 🆕
+    memosBudgetaires, setMemosBudgetaires,
     categoriesDepenses, setCategoriesDepenses,
     categoriesRevenus, setCategoriesRevenus,
     categoriesEpargnes, setCategoriesEpargnes,
     budgetPrevisionnel, setBudgetPrevisionnel,
     dateCreationCompte, setDateCreationCompte,
     modeCalculPrevisionnel, setModeCalculPrevisionnel,
+    isRolloverInProgressRef, // ✅ EXPOSER le ref
     loadData
   };
 
