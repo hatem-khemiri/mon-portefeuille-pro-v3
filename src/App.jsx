@@ -4,6 +4,7 @@ import { getCurrentUser, setCurrentUser as saveCurrentUser } from './utils/stora
 import { useChargesFixes } from './hooks/useChargesFixes';
 import { useConfirmationTransactions } from './hooks/useConfirmationTransactions';
 import { usePrevisionnelCalculations } from './hooks/usePrevisionnelCalculations';
+import { useYearRollover } from './hooks/useYearRollover';
 import { Notification } from './components/Common/Notification';
 import { ConfirmationTransactionsModal } from './components/Common/ConfirmationTransactionsModal';
 import { AccountMappingModal } from './components/Bank/AccountMappingModal';
@@ -55,6 +56,9 @@ function AppContent() {
   const { transactionsAConfirmer, marquerRealisee, reporter, annuler } = useConfirmationTransactions();
   
   usePrevisionnelCalculations();
+  
+  // ✅ AJOUT : Report automatique du solde chaque année
+  useYearRollover();
 
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState('login');
@@ -66,7 +70,7 @@ function AppContent() {
   const [showAccountMapping, setShowAccountMapping] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
 
-  // ✅ NOUVEAU : Gérer le mapping des comptes
+  // Gérer le mapping des comptes
   const handleMappingConfirm = (mapping) => {
     console.log('🟢 handleMappingConfirm APPELÉ !');
     console.log('mapping:', mapping);
@@ -83,7 +87,7 @@ function AppContent() {
     const parsedTransactions = JSON.parse(bankTransactions);
     console.log('📦 Transactions bancaires récupérées:', parsedTransactions.length);
     
-    // ✅ CRÉER LE MAPPING : accountId Bridge → nom compte utilisateur
+    // Créer le mapping : accountId Bridge → nom compte utilisateur
     const accountMapping = {};
     
     Object.entries(mapping).forEach(([accountId, accountInfo]) => {
@@ -116,7 +120,7 @@ function AppContent() {
     console.log('🗺️ Mapping créé:', accountMapping);
     console.log('updatedComptes APRÈS:', updatedComptes);
     
-    // ✅ RÉASSIGNER TOUTES LES TRANSACTIONS AU BON COMPTE
+    // Réassigner toutes les transactions au bon compte
     const transactionsAvecComptes = parsedTransactions.map(t => {
       const nomCompte = accountMapping[t.account_id];
       
@@ -212,11 +216,11 @@ function AppContent() {
           console.log('✅ Données sync reçues:', syncData);
 
           if (syncData.transactions && syncData.transactions.length > 0) {
-            // ✅ Stocker temporairement les transactions et comptes
+            // Stocker temporairement les transactions et comptes
             localStorage.setItem(`bank_transactions_${userId}`, JSON.stringify(syncData.transactions));
             localStorage.setItem(`bank_accounts_${userId}`, JSON.stringify(syncData.accounts || []));
             
-            // ✅ Afficher la modale de mapping
+            // Afficher la modale de mapping
             setBankAccounts(syncData.accounts || []);
             setShowAccountMapping(true);
           } else {
@@ -469,7 +473,7 @@ function AppContent() {
         />
       )}
 
-      {/* ✅ NOUVELLE MODAL : MAPPING DES COMPTES */}
+      {/* MODAL MAPPING DES COMPTES */}
       {showAccountMapping && (
         <AccountMappingModal
           bankAccounts={bankAccounts}
