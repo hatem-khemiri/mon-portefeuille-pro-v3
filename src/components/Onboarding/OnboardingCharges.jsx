@@ -8,23 +8,23 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
     montant: '',
     categorie: CATEGORIES_DEPENSES[0],
     frequence: 'mensuelle',
-    jourMois: '5',
+    jourMois: '',
     compte: comptes[0]?.nom || ''
   });
 
   const addCharge = () => {
-    if (newCharge.nom && newCharge.montant && newCharge.compte) {
+    if (newCharge.nom && newCharge.montant && newCharge.compte && newCharge.jourMois) {
       onChargesChange([...charges, { ...newCharge }]);
       setNewCharge({
         nom: '',
         montant: '',
         categorie: CATEGORIES_DEPENSES[0],
         frequence: 'mensuelle',
-        jourMois: '5',
+        jourMois: '',
         compte: comptes[0]?.nom || ''
       });
     } else {
-      alert('Veuillez remplir tous les champs, y compris le compte débité !');
+      alert('Veuillez remplir tous les champs, y compris le jour de prélèvement et le compte débité !');
     }
   };
 
@@ -111,7 +111,7 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
 
         <input
           type="number"
-          placeholder="Jour (1-31)"
+          placeholder="Jour de prélèvement (ex: 5 pour le 5 du mois)"
           value={newCharge.jourMois}
           onChange={e => setNewCharge({ ...newCharge, jourMois: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
@@ -119,7 +119,6 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
           max="31"
         />
 
-        {/* Compte débité */}
         <select
           value={newCharge.compte}
           onChange={e => setNewCharge({ ...newCharge, compte: e.target.value })}

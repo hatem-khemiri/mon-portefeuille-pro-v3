@@ -6,13 +6,13 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
     nom: '',
     montant: '',
     frequence: 'mensuelle',
-    jourMois: '1',
+    jourMois: '',
     compteSource: comptes[0]?.nom || '',
     compteDestination: ''
   });
 
   const addTransfert = () => {
-    if (newTransfert.nom && newTransfert.montant && newTransfert.compteSource && newTransfert.compteDestination) {
+    if (newTransfert.nom && newTransfert.montant && newTransfert.compteSource && newTransfert.compteDestination && newTransfert.jourMois) {
       onTransfertsChange([
         ...transferts,
         {
@@ -25,7 +25,7 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
         nom: '',
         montant: '',
         frequence: 'mensuelle',
-        jourMois: '1',
+        jourMois: '',
         compteSource: comptes[0]?.nom || '',
         compteDestination: ''
       });
@@ -107,7 +107,7 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
 
         <input
           type="number"
-          placeholder="Jour (1-31)"
+          placeholder="Jour du virement (ex: 10 pour le 10 du mois)"
           value={newTransfert.jourMois}
           onChange={e => setNewTransfert({ ...newTransfert, jourMois: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
@@ -115,7 +115,6 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
           max="31"
         />
 
-        {/* Compte source */}
         <select
           value={newTransfert.compteSource}
           onChange={e => setNewTransfert({ ...newTransfert, compteSource: e.target.value })}
@@ -127,7 +126,6 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
           ))}
         </select>
 
-        {/* Compte destination */}
         <select
           value={newTransfert.compteDestination}
           onChange={e => setNewTransfert({ ...newTransfert, compteDestination: e.target.value })}

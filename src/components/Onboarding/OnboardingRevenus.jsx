@@ -8,23 +8,23 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
     montant: '',
     categorie: CATEGORIES_REVENUS[0],
     frequence: 'mensuelle',
-    jourMois: '1',
+    jourMois: '',
     compte: comptes[0]?.nom || ''
   });
 
   const addRevenu = () => {
-    if (newRevenu.nom && newRevenu.montant && newRevenu.categorie && newRevenu.compte) {
+    if (newRevenu.nom && newRevenu.montant && newRevenu.categorie && newRevenu.compte && newRevenu.jourMois) {
       onRevenusChange([...revenus, { ...newRevenu }]);
       setNewRevenu({
         nom: '',
         montant: '',
         categorie: CATEGORIES_REVENUS[0],
         frequence: 'mensuelle',
-        jourMois: '1',
+        jourMois: '',
         compte: comptes[0]?.nom || ''
       });
     } else {
-      alert('Veuillez remplir tous les champs, y compris le compte receveur');
+      alert('Veuillez remplir tous les champs, y compris le jour de versement et le compte receveur');
     }
   };
 
@@ -111,7 +111,7 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
 
         <input
           type="number"
-          placeholder="Jour (1-31)"
+          placeholder="Jour de versement (ex: 1 pour le 1er du mois)"
           value={newRevenu.jourMois}
           onChange={e => setNewRevenu({ ...newRevenu, jourMois: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
@@ -119,17 +119,14 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
           max="31"
         />
 
-        {/* Compte receveur */}
         <select
           value={newRevenu.compte}
           onChange={e => setNewRevenu({ ...newRevenu, compte: e.target.value })}
           className="px-4 py-3 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-blue-50"
         >
-          <option value="">🏦 Sélectionner un compte...</option>
+          <option value="">🏦 Compte receveur...</option>
           {comptes.map(compte => (
-            <option key={compte.nom} value={compte.nom}>
-              🏦 {compte.nom}
-            </option>
+            <option key={compte.nom} value={compte.nom}>🏦 {compte.nom}</option>
           ))}
         </select>
 
