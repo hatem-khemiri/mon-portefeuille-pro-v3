@@ -15,7 +15,6 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
   const { calculerPrevisionnelAutomatique } = usePrevisionnelCalculations();
   const { nombreSuggestions } = usePrevisionnel();
 
-  // ── État local du tableau éditable ──
   const [budgetLocal, setBudgetLocal] = useState({
     revenus:  Array(12).fill(0),
     epargnes: Array(12).fill(0),
@@ -25,26 +24,22 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  // Sync budgetLocal depuis le contexte
   useEffect(() => {
     if (budgetPrevisionnel) {
       setBudgetLocal(budgetPrevisionnel);
     }
   }, [budgetPrevisionnel]);
 
-  // ── Calcul automatique ──
   const calculerBudgetAutomatique = () => {
     calculerPrevisionnelAutomatique([]);
     setIsEditing(false);
   };
 
-  // ── Save mode manuel ──
   const handleSave = () => {
     setBudgetPrevisionnel(budgetLocal);
     setIsEditing(false);
   };
 
-  // ── Éditeur cellule ──
   const handleChangeMoisValue = (categorie, moisIndex, value) => {
     const newValue = parseFloat(value) || 0;
     setBudgetLocal(prev => ({
@@ -53,20 +48,26 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
     }));
   };
 
+  // Navigation vers Paramétrage → Mes Transactions Récurrentes
+  const handleGererRecurrences = () => {
+    if (setActiveTab) {
+      setActiveTab('parametrage', 'recurrentes');
+    }
+  };
+
   const mois = ['Janvier','Février','Mars','Avril','Mai','Juin',
                 'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
-  // ── Valeurs fusionnées factures + depenses pour l'affichage ──
   const depensesFusionnees = budgetLocal.depenses.map(
     (d, i) => d + (budgetLocal.factures[i] || 0)
   );
 
   return (
     <div className="space-y-6">
-      {/* ═══ NOTIFICATION RÉCURRENCES (si détectées) ═══ */}
+      {/* ═══ NOTIFICATION RÉCURRENCES ═══ */}
       {nombreSuggestions > 0 && (
-        <div 
-          onClick={() => setActiveTab && setActiveTab('parametrage')}
+        <div
+          onClick={handleGererRecurrences}
           className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all group"
         >
           <div className="flex items-center justify-between">
@@ -87,13 +88,16 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
               <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full">
                 {nombreSuggestions}
               </span>
-              <button className="px-4 py-2 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-all">
+              <button
+                onClick={e => { e.stopPropagation(); handleGererRecurrences(); }}
+                className="px-4 py-2 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-all"
+              >
                 Gérer →
               </button>
             </div>
           </div>
           <div className="mt-3 text-xs text-amber-600 bg-amber-100 rounded-lg p-2">
-            💡 Cliquez ici pour valider, ignorer ou ajouter ces récurrences dans <strong>Paramétrage → Transactions récurrentes</strong>
+            💡 Cliquez ici pour valider, ignorer ou ajouter ces récurrences dans <strong>Paramétrage → Mes Transactions Récurrentes</strong>
           </div>
         </div>
       )}
@@ -159,7 +163,7 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
           )}
 
           {modeCalculPrevisionnel === 'manuel' && (
-            <div className="bg-white rounded-lg p-4">
+            <div className="bg-white rounded-lg p-4 mb-4">
               <p className="text-sm text-gray-600 mb-3">
                 Modifiez manuellement les montants dans le tableau ci-dessous.
               </p>
@@ -172,6 +176,19 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
               </button>
             </div>
           )}
+
+          {/* ── BOUTON GÉRER LES RÉCURRENCES ── */}
+          <div className="bg-white rounded-lg p-4 border-t border-purple-100 mt-2">
+            <p className="text-sm text-gray-600 mb-3">
+              Gérez vos transactions récurrentes (charges fixes, revenus récurrents) depuis le Paramétrage.
+            </p>
+            <button
+              onClick={handleGererRecurrences}
+              className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium hover:shadow-lg transition-all flex items-center justify-center gap-2"
+            >
+              🔄 Gérer les Transactions Récurrentes →
+            </button>
+          </div>
         </div>
       </div>
 
@@ -286,7 +303,7 @@ export const PrevisionnelContainer = ({ setActiveTab }) => {
         <h3 className="font-bold text-blue-900 mb-3">💡 Comment ça marche ?</h3>
         <ul className="space-y-2 text-sm text-blue-800">
           <li>• <strong>Mode Automatique :</strong> Le budget est calculé à partir de vos charges fixes configurées</li>
-          <li>• <strong>Récurrences détectées :</strong> Gérez-les dans <strong>Paramétrage → Transactions récurrentes</strong></li>
+          <li>• <strong>Récurrences détectées :</strong> Gérez-les dans <strong>Paramétrage → Mes Transactions Récurrentes</strong></li>
           <li>• <strong>Mode Manuel :</strong> Vous pouvez modifier manuellement chaque montant mois par mois</li>
           <li>• Les graphiques de comparaison Prévisionnel vs Réel sont disponibles dans l'onglet <strong>Tableau de Bord</strong></li>
         </ul>

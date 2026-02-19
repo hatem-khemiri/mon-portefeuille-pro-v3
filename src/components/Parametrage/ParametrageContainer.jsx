@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CategoriesTab } from './CategoriesTab';
 import { ChargesRecurrentes } from './ChargesRecurrentes';
 import { MemosBudgetaires } from './MemosBudgetaires';
 import { ComptesEtBanque } from './ComptesEtBanque';
 import { ProfilTab } from './ProfilTab';
 
-export const ParametrageContainer = ({ onExport, onLogout }) => {
-  const [activeSection, setActiveSection] = useState('profil');
+export const ParametrageContainer = ({ onExport, onLogout, defaultSection }) => {
+  const [activeSection, setActiveSection] = useState(defaultSection || 'profil');
+
+  useEffect(() => {
+    if (defaultSection) {
+      setActiveSection(defaultSection);
+    }
+  }, [defaultSection]);
 
   const sections = [
     { id: 'profil', label: '👤 Mon Profil' },

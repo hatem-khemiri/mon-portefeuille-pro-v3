@@ -56,8 +56,6 @@ function AppContent() {
   const { transactionsAConfirmer, marquerRealisee, reporter, annuler } = useConfirmationTransactions();
   
   usePrevisionnelCalculations();
-  
-  // ✅ AJOUT : Report automatique du solde chaque année
   useYearRollover();
 
   const [showAuth, setShowAuth] = useState(false);
@@ -65,10 +63,18 @@ function AppContent() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [activeTab, setActiveTab] = useState('dashboard');
+  // ✅ AJOUT : état pour l'onglet actif du Paramétrage
+  const [parametrageSection, setParametrageSection] = useState('profil');
   const [notification, setNotification] = useState(null);
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
   const [showAccountMapping, setShowAccountMapping] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
+
+  // ✅ AJOUT : fonction qui gère la navigation avec onglet Paramétrage optionnel
+  const handleSetActiveTab = (tab, section = null) => {
+    setActiveTab(tab);
+    if (section) setParametrageSection(section);
+  };
 
   // Gérer le mapping des comptes
   const handleMappingConfirm = (mapping) => {
@@ -87,12 +93,10 @@ function AppContent() {
     const parsedTransactions = JSON.parse(bankTransactions);
     console.log('📦 Transactions bancaires récupérées:', parsedTransactions.length);
     
-    // Créer le mapping : accountId Bridge → nom compte utilisateur
     const accountMapping = {};
     
     Object.entries(mapping).forEach(([accountId, accountInfo]) => {
       if (accountInfo.action === 'new') {
-        // Créer nouveau compte
         const newCompte = {
           id: Date.now() + Math.random(),
           nom: accountInfo.newName,
@@ -107,7 +111,6 @@ function AppContent() {
         accountMapping[accountId] = accountInfo.newName;
         
       } else if (accountInfo.action === 'existing') {
-        // Lier à compte existant
         const existingCompte = updatedComptes.find(c => c.id === accountInfo.existingId);
         if (existingCompte) {
           existingCompte.isSynced = true;
@@ -120,7 +123,6 @@ function AppContent() {
     console.log('🗺️ Mapping créé:', accountMapping);
     console.log('updatedComptes APRÈS:', updatedComptes);
     
-    // Réassigner toutes les transactions au bon compte
     const transactionsAvecComptes = parsedTransactions.map(t => {
       const nomCompte = accountMapping[t.account_id];
       
@@ -140,10 +142,8 @@ function AppContent() {
       montant: t.montant
     })));
     
-    // Mettre à jour les comptes
     setComptes(updatedComptes);
     
-    // Sauvegarder les transactions avec les bons comptes
     const existingTransactions = transactions || [];
     const newTransactions = transactionsAvecComptes.filter(newT => 
       !existingTransactions.some(existT => existT.bridgeId === newT.bridgeId)
@@ -155,7 +155,6 @@ function AppContent() {
     console.log('💾 Sauvegarde de', allTransactions.length, 'transactions');
     console.log('Dont', newTransactions.length, 'nouvelles');
     
-    // Nettoyer le localStorage temporaire
     localStorage.removeItem(`bank_transactions_${currentUser}`);
     localStorage.removeItem(`bank_accounts_${currentUser}`);
     
@@ -216,11 +215,9 @@ function AppContent() {
           console.log('✅ Données sync reçues:', syncData);
 
           if (syncData.transactions && syncData.transactions.length > 0) {
-            // Stocker temporairement les transactions et comptes
             localStorage.setItem(`bank_transactions_${userId}`, JSON.stringify(syncData.transactions));
             localStorage.setItem(`bank_accounts_${userId}`, JSON.stringify(syncData.accounts || []));
             
-            // Afficher la modale de mapping
             setBankAccounts(syncData.accounts || []);
             setShowAccountMapping(true);
           } else {
@@ -463,7 +460,6 @@ function AppContent() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <Notification notification={notification} onClose={() => setNotification(null)} />
       
-      {/* MODAL CONFIRMATION TRANSACTIONS */}
       {transactionsAConfirmer.length > 0 && (
         <ConfirmationTransactionsModal
           transactions={transactionsAConfirmer}
@@ -473,7 +469,6 @@ function AppContent() {
         />
       )}
 
-      {/* MODAL MAPPING DES COMPTES */}
       {showAccountMapping && (
         <AccountMappingModal
           bankAccounts={bankAccounts}
@@ -497,7 +492,7 @@ function AppContent() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleSetActiveTab(tab.id)}
                   className={`flex items-center px-6 py-4 border-b-3 transition-all whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600 bg-blue-50/50'
@@ -516,13 +511,16 @@ function AppContent() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {activeTab === 'dashboard' && <DashboardContainer />}
         {activeTab === 'transactions' && <TransactionsContainer />}
-        {activeTab === 'previsionnel' && <PrevisionnelContainer setActiveTab={setActiveTab} />}
+        {/* ✅ MODIFIÉ : on passe handleSetActiveTab à PrevisionnelContainer */}
+        {activeTab === 'previsionnel' && <PrevisionnelContainer setActiveTab={handleSetActiveTab} />}
         {activeTab === 'epargnes' && <EpargnesContainer />}
         {activeTab === 'dettes' && <DettesContainer />}
+        {/* ✅ MODIFIÉ : on passe defaultSection à ParametrageContainer */}
         {activeTab === 'parametrage' && (
-          <ParametrageContainer 
-            onExport={handleExport} 
-            onLogout={handleLogout} 
+          <ParametrageContainer
+            defaultSection={parametrageSection}
+            onExport={handleExport}
+            onLogout={handleLogout}
           />
         )}
       </main>

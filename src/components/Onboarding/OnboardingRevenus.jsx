@@ -24,7 +24,7 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
         compte: comptes[0]?.nom || ''
       });
     } else {
-      alert('Veuillez remplir tous les champs, y compris la catégorie');
+      alert('Veuillez remplir tous les champs, y compris le compte receveur');
     }
   };
 
@@ -39,21 +39,28 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
         <p className="text-gray-600 mb-4">Ajoutez au moins votre salaire ou revenu principal</p>
       </div>
 
+      {/* ── Liste des revenus ajoutés ── */}
       {revenus.length > 0 && (
         <div className="space-y-2 mb-4">
           {revenus.map((revenu, idx) => (
-            <div key={idx} className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
+            <div key={idx} className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-100">
               <div>
                 <p className="font-medium">{revenu.nom}</p>
                 <p className="text-sm text-gray-600">
-                  <span className="font-semibold text-green-700">{revenu.categorie}</span> - {revenu.montant} € - 
-                  {revenu.frequence === 'mensuelle' ? ' Mensuel' : revenu.frequence === 'trimestrielle' ? ' Trimestriel' : ' Annuel'} - 
+                  <span className="font-semibold text-green-700">{revenu.categorie}</span>
+                  {' · '}
+                  <span className="font-semibold text-gray-700">{revenu.montant} €</span>
+                  {' · '}
+                  {revenu.frequence === 'mensuelle' ? 'Mensuel' : revenu.frequence === 'trimestrielle' ? 'Trimestriel' : 'Annuel'}
+                  {' · '}
                   Le {revenu.jourMois} du mois
+                  {' · '}
+                  <span className="text-blue-600 font-medium">🏦 {revenu.compte}</span>
                 </p>
               </div>
               <button
                 onClick={() => removeRevenu(idx)}
-                className="text-red-500 hover:text-red-700"
+                className="text-red-500 hover:text-red-700 ml-4 flex-shrink-0"
               >
                 <Trash2 size={18} />
               </button>
@@ -62,7 +69,9 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {/* ── Formulaire ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
         <input
           type="text"
           placeholder="Nom (ex: Salaire)"
@@ -70,6 +79,7 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
           onChange={e => setNewRevenu({ ...newRevenu, nom: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
         />
+
         <input
           type="number"
           placeholder="Montant (€)"
@@ -77,16 +87,18 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
           onChange={e => setNewRevenu({ ...newRevenu, montant: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
         />
+
         <select
           value={newRevenu.categorie}
           onChange={e => setNewRevenu({ ...newRevenu, categorie: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
         >
-          <option value="">Sélectionner...</option>
+          <option value="">Sélectionner une catégorie...</option>
           {CATEGORIES_REVENUS.map(cat => (
             <option key={cat} value={cat}>{cat}</option>
           ))}
         </select>
+
         <select
           value={newRevenu.frequence}
           onChange={e => setNewRevenu({ ...newRevenu, frequence: e.target.value })}
@@ -96,6 +108,7 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
           <option value="trimestrielle">Trimestriel</option>
           <option value="annuelle">Annuel</option>
         </select>
+
         <input
           type="number"
           placeholder="Jour (1-31)"
@@ -105,7 +118,32 @@ export const OnboardingRevenus = ({ revenus, comptes, onRevenusChange, onNext, o
           min="1"
           max="31"
         />
+
+        {/* Compte receveur */}
+        <select
+          value={newRevenu.compte}
+          onChange={e => setNewRevenu({ ...newRevenu, compte: e.target.value })}
+          className="px-4 py-3 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-blue-50"
+        >
+          <option value="">🏦 Sélectionner un compte...</option>
+          {comptes.map(compte => (
+            <option key={compte.nom} value={compte.nom}>
+              🏦 {compte.nom}
+            </option>
+          ))}
+        </select>
+
       </div>
+
+      {/* Info multi-comptes */}
+      {comptes.length > 1 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-700 flex items-start gap-2">
+          <span className="text-lg leading-none">💡</span>
+          <span>
+            Vous avez <strong>{comptes.length} comptes bancaires</strong>. Précisez sur quel compte ce revenu sera reçu.
+          </span>
+        </div>
+      )}
 
       <button
         onClick={addRevenu}
