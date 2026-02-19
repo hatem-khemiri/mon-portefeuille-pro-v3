@@ -40,20 +40,28 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
         <p className="text-sm text-gray-500">Cette étape est optionnelle</p>
       </div>
 
+      {/* ── Liste des charges ajoutées ── */}
       {charges.length > 0 && (
         <div className="space-y-2 mb-4">
           {charges.map((charge, idx) => (
-            <div key={idx} className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl">
+            <div key={idx} className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border border-red-100">
               <div>
                 <p className="font-medium">{charge.nom}</p>
                 <p className="text-sm text-gray-600">
-                  {charge.montant} € - {charge.categorie} - 
-                  {charge.frequence === 'mensuelle' ? ' Mensuel' : charge.frequence === 'trimestrielle' ? ' Trimestriel' : ' Annuel'}
+                  <span className="font-semibold text-red-700">{charge.categorie}</span>
+                  {' · '}
+                  <span className="font-semibold text-gray-700">{charge.montant} €</span>
+                  {' · '}
+                  {charge.frequence === 'mensuelle' ? 'Mensuel' : charge.frequence === 'trimestrielle' ? 'Trimestriel' : 'Annuel'}
+                  {' · '}
+                  Le {charge.jourMois} du mois
+                  {' · '}
+                  <span className="text-blue-600 font-medium">🏦 {charge.compte}</span>
                 </p>
               </div>
               <button
                 onClick={() => removeCharge(idx)}
-                className="text-red-500 hover:text-red-700"
+                className="text-red-500 hover:text-red-700 ml-4 flex-shrink-0"
               >
                 <Trash2 size={18} />
               </button>
@@ -62,7 +70,9 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+      {/* ── Formulaire ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
         <input
           type="text"
           placeholder="Nom (ex: Loyer)"
@@ -70,6 +80,7 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
           onChange={e => setNewCharge({ ...newCharge, nom: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
         />
+
         <input
           type="number"
           placeholder="Montant (€)"
@@ -77,6 +88,7 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
           onChange={e => setNewCharge({ ...newCharge, montant: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
         />
+
         <select
           value={newCharge.categorie}
           onChange={e => setNewCharge({ ...newCharge, categorie: e.target.value })}
@@ -86,6 +98,7 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
             <option key={cat} value={cat}>{cat}</option>
           ))}
         </select>
+
         <select
           value={newCharge.frequence}
           onChange={e => setNewCharge({ ...newCharge, frequence: e.target.value })}
@@ -95,6 +108,7 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
           <option value="trimestrielle">Trimestriel</option>
           <option value="annuelle">Annuel</option>
         </select>
+
         <input
           type="number"
           placeholder="Jour (1-31)"
@@ -104,17 +118,30 @@ export const OnboardingCharges = ({ charges, comptes, onChargesChange, onNext, o
           min="1"
           max="31"
         />
+
+        {/* Compte débité */}
         <select
           value={newCharge.compte}
           onChange={e => setNewCharge({ ...newCharge, compte: e.target.value })}
-          className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+          className="px-4 py-3 border-2 border-red-200 rounded-xl focus:border-red-500 focus:outline-none bg-red-50"
         >
-          <option value="">Compte débité</option>
+          <option value="">🏦 Compte débité...</option>
           {comptes.map((c, idx) => (
-            <option key={idx} value={c.nom}>{c.nom}</option>
+            <option key={idx} value={c.nom}>🏦 {c.nom}</option>
           ))}
         </select>
+
       </div>
+
+      {/* Info multi-comptes */}
+      {comptes.length > 1 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-sm text-orange-700 flex items-start gap-2">
+          <span className="text-lg leading-none">💡</span>
+          <span>
+            Vous avez <strong>{comptes.length} comptes bancaires</strong>. Précisez depuis quel compte cette charge sera débitée.
+          </span>
+        </div>
+      )}
 
       <button
         onClick={addCharge}

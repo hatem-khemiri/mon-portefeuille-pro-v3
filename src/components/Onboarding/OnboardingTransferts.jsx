@@ -14,7 +14,7 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
   const addTransfert = () => {
     if (newTransfert.nom && newTransfert.montant && newTransfert.compteSource && newTransfert.compteDestination) {
       onTransfertsChange([
-        ...transferts, 
+        ...transferts,
         {
           ...newTransfert,
           type: 'transfert',
@@ -46,21 +46,28 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
         <p className="text-sm text-gray-500">Cette étape est optionnelle</p>
       </div>
 
+      {/* ── Liste des transferts ajoutés ── */}
       {transferts.length > 0 && (
         <div className="space-y-2 mb-4">
           {transferts.map((transfert, idx) => (
-            <div key={idx} className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
+            <div key={idx} className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
               <div>
                 <p className="font-medium">{transfert.nom}</p>
                 <p className="text-sm text-gray-600">
-                  {transfert.montant} € - De {transfert.compteSource} vers {transfert.compteDestination} - 
-                  {transfert.frequence === 'mensuelle' ? ' Mensuel' : transfert.frequence === 'trimestrielle' ? ' Trimestriel' : ' Annuel'} - 
+                  <span className="font-semibold text-gray-700">{transfert.montant} €</span>
+                  {' · '}
+                  {transfert.frequence === 'mensuelle' ? 'Mensuel' : transfert.frequence === 'trimestrielle' ? 'Trimestriel' : 'Annuel'}
+                  {' · '}
                   Le {transfert.jourMois} du mois
+                  {' · '}
+                  <span className="text-purple-600 font-medium">🏦 {transfert.compteSource}</span>
+                  {' → '}
+                  <span className="text-pink-600 font-medium">🏦 {transfert.compteDestination}</span>
                 </p>
               </div>
               <button
                 onClick={() => removeTransfert(idx)}
-                className="text-red-500 hover:text-red-700"
+                className="text-red-500 hover:text-red-700 ml-4 flex-shrink-0"
               >
                 <Trash2 size={18} />
               </button>
@@ -69,7 +76,9 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+      {/* ── Formulaire ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
         <input
           type="text"
           placeholder="Nom (ex: Épargne Livret A)"
@@ -77,6 +86,7 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
           onChange={e => setNewTransfert({ ...newTransfert, nom: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
         />
+
         <input
           type="number"
           placeholder="Montant (€)"
@@ -84,6 +94,7 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
           onChange={e => setNewTransfert({ ...newTransfert, montant: e.target.value })}
           className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
         />
+
         <select
           value={newTransfert.frequence}
           onChange={e => setNewTransfert({ ...newTransfert, frequence: e.target.value })}
@@ -93,6 +104,7 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
           <option value="trimestrielle">Trimestriel</option>
           <option value="annuelle">Annuel</option>
         </select>
+
         <input
           type="number"
           placeholder="Jour (1-31)"
@@ -102,27 +114,42 @@ export const OnboardingTransferts = ({ transferts, comptes, onTransfertsChange, 
           min="1"
           max="31"
         />
+
+        {/* Compte source */}
         <select
           value={newTransfert.compteSource}
           onChange={e => setNewTransfert({ ...newTransfert, compteSource: e.target.value })}
-          className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
+          className="px-4 py-3 border-2 border-purple-200 rounded-xl focus:border-purple-500 focus:outline-none bg-purple-50"
         >
-          <option value="">Depuis...</option>
+          <option value="">🏦 Depuis...</option>
           {comptes.map((c, idx) => (
-            <option key={idx} value={c.nom}>{c.nom}</option>
+            <option key={idx} value={c.nom}>🏦 {c.nom}</option>
           ))}
         </select>
+
+        {/* Compte destination */}
         <select
           value={newTransfert.compteDestination}
           onChange={e => setNewTransfert({ ...newTransfert, compteDestination: e.target.value })}
-          className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
+          className="px-4 py-3 border-2 border-pink-200 rounded-xl focus:border-pink-500 focus:outline-none bg-pink-50"
         >
-          <option value="">Vers...</option>
+          <option value="">🏦 Vers...</option>
           {comptes.map((c, idx) => (
-            <option key={idx} value={c.nom}>{c.nom}</option>
+            <option key={idx} value={c.nom}>🏦 {c.nom}</option>
           ))}
         </select>
+
       </div>
+
+      {/* Info multi-comptes */}
+      {comptes.length > 1 && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-purple-700 flex items-start gap-2">
+          <span className="text-lg leading-none">💡</span>
+          <span>
+            Vous avez <strong>{comptes.length} comptes bancaires</strong>. Sélectionnez le compte source et le compte destinataire du virement.
+          </span>
+        </div>
+      )}
 
       <button
         onClick={addTransfert}
