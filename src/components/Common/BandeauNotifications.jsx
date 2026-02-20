@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const COULEURS = {
   warning: {
@@ -25,7 +25,13 @@ const COULEURS = {
   }
 };
 
-const NotifCard = ({ notif, onAction, onDismiss }) => {
+// Clé localStorage pour mémoriser les vérifications du jour
+const getCleVerification = (id) => {
+  const dateAujourdhui = new Date().toISOString().split('T')[0];
+  return `notif_verifie_${id}_${dateAujourdhui}`;
+};
+
+const NotifCard = ({ notif, onAction }) => {
   const [expanded, setExpanded] = useState(false);
   const c = COULEURS[notif.type] || COULEURS.info;
 
@@ -58,13 +64,6 @@ const NotifCard = ({ notif, onAction, onDismiss }) => {
           >
             {notif.cta} →
           </button>
-          <button
-            onClick={() => onDismiss(notif.id)}
-            className={`p-1 rounded-lg ${c.icone} hover:opacity-70 transition-opacity`}
-            title="Ignorer pour cette session"
-          >
-            <X size={16} />
-          </button>
         </div>
       </div>
     </div>
@@ -72,31 +71,58 @@ const NotifCard = ({ notif, onAction, onDismiss }) => {
 };
 
 export const BandeauNotifications = ({ notifications, onNavigate }) => {
-  const [dismissed, setDismissed] = useState([]);
+  // Charge depuis localStorage les notifs déjà vérifiées aujourd'hui
+  const [verifieesAujourdhui, setVerifieesAujourdhui] = useState(() => {
+    return notifications
+      .map(n => n.id)
+      .filter(id => {
+        try {
+          return localStorage.getItem(getCleVerification(id)) === 'true';
+        } catch {
+          return false;
+        }
+      });
+  });
 
-  const notifVisibles = notifications.filter(n => !dismissed.includes(n.id));
+  // Recalcule si notifications change (ex: après chargement des données)
+  useEffect(() => {
+    const dejaVerifiees = notifications
+      .map(n => n.id)
+      .filter(id => {
+        try {
+          return localStorage.getItem(getCleVerification(id)) === 'true';
+        } catch {
+          return false;
+        }
+      });
+    setVerifieesAujourdhui(dejaVerifiees);
+  }, [notifications]);
+
+  const notifVisibles = notifications.filter(n => !verifieesAujourdhui.includes(n.id));
 
   if (notifVisibles.length === 0) return null;
 
-  const handleDismiss = (id) => {
-    setDismissed(prev => [...prev, id]);
-  };
-
   const handleAction = (notif) => {
-    // ✅ Passe lien + section optionnelle à handleSetActiveTab
+    // Mémorise que cette notif a été traitée aujourd'hui
+    try {
+      localStorage.setItem(getCleVerification(notif.id), 'true');
+    } catch (e) {
+      console.warn('localStorage indisponible');
+    }
+    setVerifieesAujourdhui(prev => [...prev, notif.id]);
     onNavigate(notif.lien, notif.section || null);
-    handleDismiss(notif.id);
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 pt-4 space-y-3">
+      {/* En-tête récapitulatif si plusieurs notifs */}
       {notifVisibles.length > 1 && (
         <div className="flex items-center gap-2 px-1">
           <span className="bg-gray-800 text-white text-xs font-bold px-2.5 py-1 rounded-full">
             {notifVisibles.length}
           </span>
           <p className="text-sm font-semibold text-gray-700">
-            actions en attente aujourd'hui
+            vérifications du jour en attente
           </p>
         </div>
       )}
@@ -106,7 +132,6 @@ export const BandeauNotifications = ({ notifications, onNavigate }) => {
           key={notif.id}
           notif={notif}
           onAction={handleAction}
-          onDismiss={handleDismiss}
         />
       ))}
     </div>
