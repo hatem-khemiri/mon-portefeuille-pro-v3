@@ -5,7 +5,6 @@ import { useChargesFixes } from './hooks/useChargesFixes';
 import { useConfirmationTransactions } from './hooks/useConfirmationTransactions';
 import { usePrevisionnelCalculations } from './hooks/usePrevisionnelCalculations';
 import { useYearRollover } from './hooks/useYearRollover';
-// ✅ AJOUT
 import { useNotificationsJour } from './hooks/useNotificationsJour';
 import { BandeauNotifications } from './components/Common/BandeauNotifications';
 import { Notification } from './components/Common/Notification';
@@ -25,34 +24,20 @@ import { ParametrageContainer } from './components/Parametrage/ParametrageContai
 import { TrendingUp, FileText, Calendar, PiggyBank, CreditCard, Settings } from 'lucide-react';
 
 const tabs = [
-  { id: 'dashboard', label: 'Tableau de Bord', icon: TrendingUp },
-  { id: 'transactions', label: 'Transactions', icon: FileText },
-  { id: 'previsionnel', label: 'Configuration du Prévisionnel', icon: Calendar },
-  { id: 'epargnes', label: 'Épargnes', icon: PiggyBank },
-  { id: 'dettes', label: 'Crédits & Dettes', icon: CreditCard },
-  { id: 'parametrage', label: 'Paramétrage', icon: Settings }
+  { id: 'dashboard',     label: 'Tableau de Bord',               icon: TrendingUp },
+  { id: 'transactions',  label: 'Transactions',                   icon: FileText   },
+  { id: 'previsionnel',  label: 'Configuration du Prévisionnel',  icon: Calendar   },
+  { id: 'epargnes',      label: 'Épargnes',                       icon: PiggyBank  },
+  { id: 'dettes',        label: 'Crédits & Dettes',               icon: CreditCard },
+  { id: 'parametrage',   label: 'Paramétrage',                    icon: Settings   }
 ];
 
 function AppContent() {
   const {
-    currentUser,
-    setCurrentUser,
-    isLoading,
-    setIsLoading,
-    loadData,
-    comptes,
-    setComptes,
-    transactions,
-    setTransactions,
-    chargesFixes,
-    setChargesFixes,
-    epargnes,
-    setEpargnes,
-    dettes,
-    setDateCreationCompte,
-    categoriesDepenses,
-    categoriesRevenus,
-    categoriesEpargnes
+    currentUser, setCurrentUser, isLoading, setIsLoading, loadData,
+    comptes, setComptes, transactions, setTransactions,
+    chargesFixes, setChargesFixes, epargnes, setEpargnes, dettes,
+    setDateCreationCompte, categoriesDepenses, categoriesRevenus, categoriesEpargnes
   } = useFinance();
 
   const { genererTransactionsChargesFixes } = useChargesFixes();
@@ -61,23 +46,28 @@ function AppContent() {
   usePrevisionnelCalculations();
   useYearRollover();
 
-  // ✅ AJOUT
   const { notifications } = useNotificationsJour();
 
-  const [showAuth, setShowAuth] = useState(false);
-  const [authMode, setAuthMode] = useState('login');
+  const [showAuth, setShowAuth]                   = useState(false);
+  const [authMode, setAuthMode]                   = useState('login');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState(0);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [onboardingStep, setOnboardingStep]       = useState(0);
+  const [activeTab, setActiveTab]                 = useState('dashboard');
   const [parametrageSection, setParametrageSection] = useState('profil');
-  const [notification, setNotification] = useState(null);
+  // ✅ AJOUT : filtre date transmis à TransactionsContainer depuis le bandeau
+  const [transactionsFiltreDate, setTransactionsFiltreDate] = useState(null);
+  const [notification, setNotification]           = useState(null);
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
   const [showAccountMapping, setShowAccountMapping] = useState(false);
-  const [bankAccounts, setBankAccounts] = useState([]);
+  const [bankAccounts, setBankAccounts]           = useState([]);
 
-  const handleSetActiveTab = (tab, section = null) => {
+  // ✅ MODIFIÉ : accepte maintenant filtreDate en 3ème argument
+  const handleSetActiveTab = (tab, section = null, filtreDate = null) => {
     setActiveTab(tab);
-    if (section) setParametrageSection(section);
+    if (section)    setParametrageSection(section);
+    if (filtreDate) setTransactionsFiltreDate(filtreDate);
+    // Reset le filtre date si on navigue ailleurs que transactions
+    if (tab !== 'transactions') setTransactionsFiltreDate(null);
   };
 
   const handleMappingConfirm = (mapping) => {
@@ -127,16 +117,12 @@ function AppContent() {
 
     const transactionsAvecComptes = parsedTransactions.map(t => {
       const nomCompte = accountMapping[t.account_id];
-      if (!nomCompte) {
-        console.warn('⚠️ Transaction sans mapping:', t.account_id, t);
-      }
+      if (!nomCompte) console.warn('⚠️ Transaction sans mapping:', t.account_id, t);
       return { ...t, compte: nomCompte || 'Compte inconnu' };
     });
 
     console.log('✅ Transactions réassignées (5 premières):', transactionsAvecComptes.slice(0, 5).map(t => ({
-      id: t.bridgeId,
-      compte: t.compte,
-      montant: t.montant
+      id: t.bridgeId, compte: t.compte, montant: t.montant
     })));
 
     setComptes(updatedComptes);
@@ -145,7 +131,6 @@ function AppContent() {
     const newTransactions = transactionsAvecComptes.filter(newT =>
       !existingTransactions.some(existT => existT.bridgeId === newT.bridgeId)
     );
-
     const allTransactions = [...existingTransactions, ...newTransactions];
     setTransactions(allTransactions);
 
@@ -154,14 +139,8 @@ function AppContent() {
 
     localStorage.removeItem(`bank_transactions_${currentUser}`);
     localStorage.removeItem(`bank_accounts_${currentUser}`);
-
     setShowAccountMapping(false);
-
-    setNotification({
-      type: 'success',
-      message: `✅ ${newTransactions.length} transaction(s) synchronisée(s) !`
-    });
-
+    setNotification({ type: 'success', message: `✅ ${newTransactions.length} transaction(s) synchronisée(s) !` });
     setActiveTab('transactions');
   };
 
@@ -169,7 +148,6 @@ function AppContent() {
     const handleBridgeCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const userId = urlParams.get('userId');
-
       if (!userId) return;
 
       console.log('📞 Callback Bridge détecté pour:', userId);
@@ -181,7 +159,6 @@ function AppContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId })
         });
-
         if (!itemsResponse.ok) throw new Error('Erreur récupération items');
 
         const { items } = await itemsResponse.json();
@@ -189,22 +166,17 @@ function AppContent() {
 
         if (items && items.length > 0) {
           const latestItem = items[0];
-
           localStorage.setItem(`bank_connection_${userId}`, JSON.stringify({
-            itemId: latestItem.id,
-            userId: userId,
-            bankName: latestItem.bank_name,
+            itemId: latestItem.id, userId, bankName: latestItem.bank_name,
             connectedAt: new Date().toISOString()
           }));
 
           console.log('🔄 Synchronisation transactions...');
-
           const syncResponse = await fetch('/api/bridge/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ itemId: latestItem.id, userId })
           });
-
           if (!syncResponse.ok) throw new Error('Erreur synchronisation');
 
           const syncData = await syncResponse.json();
@@ -213,33 +185,21 @@ function AppContent() {
           if (syncData.transactions && syncData.transactions.length > 0) {
             localStorage.setItem(`bank_transactions_${userId}`, JSON.stringify(syncData.transactions));
             localStorage.setItem(`bank_accounts_${userId}`, JSON.stringify(syncData.accounts || []));
-
             setBankAccounts(syncData.accounts || []);
             setShowAccountMapping(true);
           } else {
-            setNotification({
-              type: 'info',
-              message: 'ℹ️ Aucune transaction trouvée'
-            });
+            setNotification({ type: 'info', message: 'ℹ️ Aucune transaction trouvée' });
           }
         }
-
         window.history.replaceState({}, document.title, window.location.pathname);
-
       } catch (error) {
         console.error('❌ Erreur callback:', error);
-        setNotification({
-          type: 'error',
-          message: `❌ Erreur : ${error.message}`
-        });
+        setNotification({ type: 'error', message: `❌ Erreur : ${error.message}` });
       } finally {
         setIsProcessingCallback(false);
       }
     };
-
-    if (currentUser) {
-      handleBridgeCallback();
-    }
+    if (currentUser) handleBridgeCallback();
   }, [currentUser]);
 
   useEffect(() => {
@@ -248,13 +208,10 @@ function AppContent() {
       if (username) {
         setCurrentUser(username);
         await loadData(username);
-
         const data = localStorage.getItem(`user_data_${username}`);
         if (data) {
           const parsed = JSON.parse(data);
-          if (!parsed.onboardingCompleted) {
-            setOnboardingStep(1);
-          }
+          if (!parsed.onboardingCompleted) setOnboardingStep(1);
         } else {
           setOnboardingStep(1);
         }
@@ -263,7 +220,6 @@ function AppContent() {
       }
       setIsLoading(false);
     };
-
     loadUser();
   }, []);
 
@@ -272,13 +228,10 @@ function AppContent() {
     setCurrentUser(username);
     setShowAuth(false);
     await loadData(username);
-
     const data = localStorage.getItem(`user_data_${username}`);
     if (data) {
       const parsed = JSON.parse(data);
-      if (!parsed.onboardingCompleted) {
-        setOnboardingStep(1);
-      }
+      if (!parsed.onboardingCompleted) setOnboardingStep(1);
     } else {
       setOnboardingStep(1);
     }
@@ -305,17 +258,13 @@ function AppContent() {
     const nouveauxComptes = onboardingData.comptes.map((c, i) => {
       const soldeInitialFixe = c.soldeInitial !== undefined ? c.soldeInitial : parseFloat(c.solde);
       return {
-        id: c.id || Date.now() + i,
-        nom: c.nom,
-        type: c.type,
-        solde: soldeInitialFixe,
-        soldeInitial: soldeInitialFixe,
-        isSynced: c.isSynced || false
+        id: c.id || Date.now() + i, nom: c.nom, type: c.type,
+        solde: soldeInitialFixe, soldeInitial: soldeInitialFixe, isSynced: c.isSynced || false
       };
     });
     setComptes(nouveauxComptes);
 
-    if (onboardingData.transactions && onboardingData.transactions.length > 0) {
+    if (onboardingData.transactions?.length > 0) {
       console.log('💾 Sauvegarde de', onboardingData.transactions.length, 'transactions');
       setTransactions(onboardingData.transactions);
     }
@@ -323,69 +272,38 @@ function AppContent() {
     const nouvellesCharges = [...onboardingData.revenus, ...onboardingData.charges, ...onboardingData.transferts].map((c, i) => {
       if (c.type === 'transfert') {
         return {
-          id: Date.now() + i + 1000,
-          nom: c.nom,
-          montant: Math.abs(parseFloat(c.montant)),
-          categorie: 'Transfert',
-          frequence: c.frequence,
-          jourMois: parseInt(c.jourMois),
-          compte: c.compteSource,
-          compteDestination: c.compteDestination,
-          type: 'transfert'
+          id: Date.now() + i + 1000, nom: c.nom,
+          montant: Math.abs(parseFloat(c.montant)), categorie: 'Transfert',
+          frequence: c.frequence, jourMois: parseInt(c.jourMois),
+          compte: c.compteSource, compteDestination: c.compteDestination, type: 'transfert'
         };
       }
-
       let montant = Math.abs(parseFloat(c.montant));
-      if (categoriesDepenses.includes(c.categorie) || categoriesEpargnes.includes(c.categorie)) {
-        montant = -montant;
-      }
-
-      return {
-        id: Date.now() + i + 1000,
-        ...c,
-        montant,
-        jourMois: parseInt(c.jourMois)
-      };
+      if (categoriesDepenses.includes(c.categorie) || categoriesEpargnes.includes(c.categorie)) montant = -montant;
+      return { id: Date.now() + i + 1000, ...c, montant, jourMois: parseInt(c.jourMois) };
     });
     setChargesFixes(nouvellesCharges);
 
     const nouvellesEpargnes = onboardingData.epargnes.map((e, i) => ({
-      id: Date.now() + i + 2000,
-      ...e,
-      objectif: parseFloat(e.objectif)
+      id: Date.now() + i + 2000, ...e, objectif: parseFloat(e.objectif)
     }));
     setEpargnes(nouvellesEpargnes);
 
-    setTimeout(() => {
-      genererTransactionsChargesFixes(nouvellesCharges, dateCreation);
-    }, 500);
-
+    setTimeout(() => { genererTransactionsChargesFixes(nouvellesCharges, dateCreation); }, 500);
     setOnboardingStep(0);
   };
 
   const handleExport = async () => {
     setNotification({ type: 'info', message: '📄 Génération du rapport...' });
-
     try {
       const { generateReport } = await import('./utils/reportGenerator');
-
       const reportHTML = generateReport({
-        currentUser,
-        comptes,
-        transactions,
-        chargesFixes,
-        epargnes,
-        dettes,
-        categoriesDepenses,
-        categoriesRevenus,
-        categoriesEpargnes
+        currentUser, comptes, transactions, chargesFixes, epargnes, dettes,
+        categoriesDepenses, categoriesRevenus, categoriesEpargnes
       });
-
       const blob = new Blob([reportHTML], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-
+      const url  = URL.createObjectURL(blob);
       const newWindow = window.open(url, '_blank');
-
       if (newWindow) {
         setNotification({ type: 'success', message: '✅ Rapport ouvert !' });
         setTimeout(() => URL.revokeObjectURL(url), 30000);
@@ -404,9 +322,7 @@ function AppContent() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">
-            {isProcessingCallback ? 'Synchronisation...' : 'Chargement...'}
-          </p>
+          <p className="text-gray-600">{isProcessingCallback ? 'Synchronisation...' : 'Chargement...'}</p>
         </div>
       </div>
     );
@@ -431,10 +347,7 @@ function AppContent() {
               onForgotPassword={() => setShowForgotPassword(true)}
             />
           ) : (
-            <SignupForm
-              onSignup={handleSignup}
-              onSwitchToLogin={() => setAuthMode('login')}
-            />
+            <SignupForm onSignup={handleSignup} onSwitchToLogin={() => setAuthMode('login')} />
           )}
         </div>
       </div>
@@ -497,19 +410,20 @@ function AppContent() {
         </div>
       </nav>
 
-      {/* ✅ AJOUT : Bandeau notifications juste sous la nav */}
+      {/* ✅ Bandeau notifications juste sous la nav */}
       <BandeauNotifications
         notifications={notifications}
         onNavigate={handleSetActiveTab}
       />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {activeTab === 'dashboard'      && <DashboardContainer />}
-        {activeTab === 'transactions'   && <TransactionsContainer />}
-        {activeTab === 'previsionnel'   && <PrevisionnelContainer setActiveTab={handleSetActiveTab} />}
-        {activeTab === 'epargnes'       && <EpargnesContainer />}
-        {activeTab === 'dettes'         && <DettesContainer />}
-        {activeTab === 'parametrage'    && (
+        {activeTab === 'dashboard'    && <DashboardContainer />}
+        {/* ✅ MODIFIÉ : filtreDate transmis à TransactionsContainer */}
+        {activeTab === 'transactions' && <TransactionsContainer filtreDate={transactionsFiltreDate} />}
+        {activeTab === 'previsionnel' && <PrevisionnelContainer setActiveTab={handleSetActiveTab} />}
+        {activeTab === 'epargnes'     && <EpargnesContainer />}
+        {activeTab === 'dettes'       && <DettesContainer />}
+        {activeTab === 'parametrage'  && (
           <ParametrageContainer
             defaultSection={parametrageSection}
             onExport={handleExport}

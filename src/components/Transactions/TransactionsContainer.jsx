@@ -5,7 +5,8 @@ import { TransfertForm } from './TransfertForm';
 import { TransactionList } from './TransactionList';
 import { useTransactions } from '../../hooks/useTransactions';
 
-export const TransactionsContainer = () => {
+// ✅ MODIFIÉ : accepte filtreDate depuis App.jsx
+export const TransactionsContainer = ({ filtreDate = null }) => {
   const { deleteTransaction } = useTransactions();
   const [activeTab, setActiveTab] = useState('transaction');
   const [deletingTransaction, setDeletingTransaction] = useState(null);
@@ -15,7 +16,6 @@ export const TransactionsContainer = () => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 500);
     };
-    
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -53,7 +53,7 @@ export const TransactionsContainer = () => {
                 </div>
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
                   <p className="text-xs text-blue-800">
-                    💡 Pour supprimer définitivement cette charge récurrente, allez dans <strong>Paramétrage → Transactions Récurrentes</strong>
+                    💡 Pour supprimer définitivement cette charge récurrente, allez dans <strong>Paramétrage → Mes Transactions Récurrentes</strong>
                   </p>
                 </div>
               </div>
@@ -133,15 +133,18 @@ export const TransactionsContainer = () => {
             🔄 Transfert / Épargne
           </button>
         </div>
-        
+
         <div className="p-6">
           {activeTab === 'transaction' ? <TransactionForm /> : <TransfertForm />}
         </div>
       </div>
 
-      <TransactionList onDeleteTransaction={handleDelete} />
+      {/* ✅ MODIFIÉ : filtreDate transmis à TransactionList */}
+      <TransactionList
+        onDeleteTransaction={handleDelete}
+        filtreDate={filtreDate}
+      />
 
-      {/* BOUTON SCROLL TO TOP */}
       {showScrollTop && (
         <button
           onClick={scrollToTop}

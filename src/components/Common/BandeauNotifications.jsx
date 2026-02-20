@@ -25,7 +25,6 @@ const COULEURS = {
   }
 };
 
-// Clé localStorage pour mémoriser les vérifications du jour
 const getCleVerification = (id) => {
   const dateAujourdhui = new Date().toISOString().split('T')[0];
   return `notif_verifie_${id}_${dateAujourdhui}`;
@@ -71,29 +70,21 @@ const NotifCard = ({ notif, onAction }) => {
 };
 
 export const BandeauNotifications = ({ notifications, onNavigate }) => {
-  // Charge depuis localStorage les notifs déjà vérifiées aujourd'hui
   const [verifieesAujourdhui, setVerifieesAujourdhui] = useState(() => {
     return notifications
       .map(n => n.id)
       .filter(id => {
-        try {
-          return localStorage.getItem(getCleVerification(id)) === 'true';
-        } catch {
-          return false;
-        }
+        try { return localStorage.getItem(getCleVerification(id)) === 'true'; }
+        catch { return false; }
       });
   });
 
-  // Recalcule si notifications change (ex: après chargement des données)
   useEffect(() => {
     const dejaVerifiees = notifications
       .map(n => n.id)
       .filter(id => {
-        try {
-          return localStorage.getItem(getCleVerification(id)) === 'true';
-        } catch {
-          return false;
-        }
+        try { return localStorage.getItem(getCleVerification(id)) === 'true'; }
+        catch { return false; }
       });
     setVerifieesAujourdhui(dejaVerifiees);
   }, [notifications]);
@@ -103,19 +94,15 @@ export const BandeauNotifications = ({ notifications, onNavigate }) => {
   if (notifVisibles.length === 0) return null;
 
   const handleAction = (notif) => {
-    // Mémorise que cette notif a été traitée aujourd'hui
-    try {
-      localStorage.setItem(getCleVerification(notif.id), 'true');
-    } catch (e) {
-      console.warn('localStorage indisponible');
-    }
+    try { localStorage.setItem(getCleVerification(notif.id), 'true'); }
+    catch (e) { console.warn('localStorage indisponible'); }
     setVerifieesAujourdhui(prev => [...prev, notif.id]);
-    onNavigate(notif.lien, notif.section || null);
+    // ✅ Passe aussi filtreDate si présent (cas transactions du jour)
+    onNavigate(notif.lien, notif.section || null, notif.filtreDate || null);
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 pt-4 space-y-3">
-      {/* En-tête récapitulatif si plusieurs notifs */}
       {notifVisibles.length > 1 && (
         <div className="flex items-center gap-2 px-1">
           <span className="bg-gray-800 text-white text-xs font-bold px-2.5 py-1 rounded-full">
