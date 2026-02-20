@@ -5,6 +5,9 @@ import { useChargesFixes } from './hooks/useChargesFixes';
 import { useConfirmationTransactions } from './hooks/useConfirmationTransactions';
 import { usePrevisionnelCalculations } from './hooks/usePrevisionnelCalculations';
 import { useYearRollover } from './hooks/useYearRollover';
+// ✅ AJOUT
+import { useNotificationsJour } from './hooks/useNotificationsJour';
+import { BandeauNotifications } from './components/Common/BandeauNotifications';
 import { Notification } from './components/Common/Notification';
 import { ConfirmationTransactionsModal } from './components/Common/ConfirmationTransactionsModal';
 import { AccountMappingModal } from './components/Bank/AccountMappingModal';
@@ -31,10 +34,10 @@ const tabs = [
 ];
 
 function AppContent() {
-  const { 
-    currentUser, 
-    setCurrentUser, 
-    isLoading, 
+  const {
+    currentUser,
+    setCurrentUser,
+    isLoading,
     setIsLoading,
     loadData,
     comptes,
@@ -54,47 +57,47 @@ function AppContent() {
 
   const { genererTransactionsChargesFixes } = useChargesFixes();
   const { transactionsAConfirmer, marquerRealisee, reporter, annuler } = useConfirmationTransactions();
-  
+
   usePrevisionnelCalculations();
   useYearRollover();
+
+  // ✅ AJOUT
+  const { notifications } = useNotificationsJour();
 
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [activeTab, setActiveTab] = useState('dashboard');
-  // ✅ AJOUT : état pour l'onglet actif du Paramétrage
   const [parametrageSection, setParametrageSection] = useState('profil');
   const [notification, setNotification] = useState(null);
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
   const [showAccountMapping, setShowAccountMapping] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
 
-  // ✅ AJOUT : fonction qui gère la navigation avec onglet Paramétrage optionnel
   const handleSetActiveTab = (tab, section = null) => {
     setActiveTab(tab);
     if (section) setParametrageSection(section);
   };
 
-  // Gérer le mapping des comptes
   const handleMappingConfirm = (mapping) => {
     console.log('🟢 handleMappingConfirm APPELÉ !');
     console.log('mapping:', mapping);
     console.log('comptes AVANT:', comptes);
-    
+
     const updatedComptes = [...comptes];
     const bankTransactions = localStorage.getItem(`bank_transactions_${currentUser}`);
-    
+
     if (!bankTransactions) {
       console.error('❌ Aucune transaction bancaire trouvée');
       return;
     }
-    
+
     const parsedTransactions = JSON.parse(bankTransactions);
     console.log('📦 Transactions bancaires récupérées:', parsedTransactions.length);
-    
+
     const accountMapping = {};
-    
+
     Object.entries(mapping).forEach(([accountId, accountInfo]) => {
       if (accountInfo.action === 'new') {
         const newCompte = {
@@ -109,7 +112,6 @@ function AppContent() {
         };
         updatedComptes.push(newCompte);
         accountMapping[accountId] = accountInfo.newName;
-        
       } else if (accountInfo.action === 'existing') {
         const existingCompte = updatedComptes.find(c => c.id === accountInfo.existingId);
         if (existingCompte) {
@@ -119,56 +121,50 @@ function AppContent() {
         }
       }
     });
-    
+
     console.log('🗺️ Mapping créé:', accountMapping);
     console.log('updatedComptes APRÈS:', updatedComptes);
-    
+
     const transactionsAvecComptes = parsedTransactions.map(t => {
       const nomCompte = accountMapping[t.account_id];
-      
       if (!nomCompte) {
         console.warn('⚠️ Transaction sans mapping:', t.account_id, t);
       }
-      
-      return {
-        ...t,
-        compte: nomCompte || 'Compte inconnu'
-      };
+      return { ...t, compte: nomCompte || 'Compte inconnu' };
     });
-    
+
     console.log('✅ Transactions réassignées (5 premières):', transactionsAvecComptes.slice(0, 5).map(t => ({
       id: t.bridgeId,
       compte: t.compte,
       montant: t.montant
     })));
-    
+
     setComptes(updatedComptes);
-    
+
     const existingTransactions = transactions || [];
-    const newTransactions = transactionsAvecComptes.filter(newT => 
+    const newTransactions = transactionsAvecComptes.filter(newT =>
       !existingTransactions.some(existT => existT.bridgeId === newT.bridgeId)
     );
-    
+
     const allTransactions = [...existingTransactions, ...newTransactions];
     setTransactions(allTransactions);
-    
+
     console.log('💾 Sauvegarde de', allTransactions.length, 'transactions');
     console.log('Dont', newTransactions.length, 'nouvelles');
-    
+
     localStorage.removeItem(`bank_transactions_${currentUser}`);
     localStorage.removeItem(`bank_accounts_${currentUser}`);
-    
+
     setShowAccountMapping(false);
-    
-    setNotification({ 
-      type: 'success', 
-      message: `✅ ${newTransactions.length} transaction(s) synchronisée(s) !` 
+
+    setNotification({
+      type: 'success',
+      message: `✅ ${newTransactions.length} transaction(s) synchronisée(s) !`
     });
-    
+
     setActiveTab('transactions');
   };
 
-  // Gérer le callback Bridge
   useEffect(() => {
     const handleBridgeCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -202,7 +198,7 @@ function AppContent() {
           }));
 
           console.log('🔄 Synchronisation transactions...');
-          
+
           const syncResponse = await fetch('/api/bridge/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -217,13 +213,13 @@ function AppContent() {
           if (syncData.transactions && syncData.transactions.length > 0) {
             localStorage.setItem(`bank_transactions_${userId}`, JSON.stringify(syncData.transactions));
             localStorage.setItem(`bank_accounts_${userId}`, JSON.stringify(syncData.accounts || []));
-            
+
             setBankAccounts(syncData.accounts || []);
             setShowAccountMapping(true);
           } else {
-            setNotification({ 
-              type: 'info', 
-              message: 'ℹ️ Aucune transaction trouvée' 
+            setNotification({
+              type: 'info',
+              message: 'ℹ️ Aucune transaction trouvée'
             });
           }
         }
@@ -232,9 +228,9 @@ function AppContent() {
 
       } catch (error) {
         console.error('❌ Erreur callback:', error);
-        setNotification({ 
-          type: 'error', 
-          message: `❌ Erreur : ${error.message}` 
+        setNotification({
+          type: 'error',
+          message: `❌ Erreur : ${error.message}`
         });
       } finally {
         setIsProcessingCallback(false);
@@ -246,14 +242,13 @@ function AppContent() {
     }
   }, [currentUser]);
 
-  // Charger utilisateur au démarrage
   useEffect(() => {
     const loadUser = async () => {
       const username = getCurrentUser();
       if (username) {
         setCurrentUser(username);
         await loadData(username);
-        
+
         const data = localStorage.getItem(`user_data_${username}`);
         if (data) {
           const parsed = JSON.parse(data);
@@ -277,7 +272,7 @@ function AppContent() {
     setCurrentUser(username);
     setShowAuth(false);
     await loadData(username);
-    
+
     const data = localStorage.getItem(`user_data_${username}`);
     if (data) {
       const parsed = JSON.parse(data);
@@ -306,7 +301,7 @@ function AppContent() {
   const handleOnboardingComplete = (onboardingData) => {
     const dateCreation = new Date().toISOString();
     setDateCreationCompte(dateCreation);
-    
+
     const nouveauxComptes = onboardingData.comptes.map((c, i) => {
       const soldeInitialFixe = c.soldeInitial !== undefined ? c.soldeInitial : parseFloat(c.solde);
       return {
@@ -339,12 +334,12 @@ function AppContent() {
           type: 'transfert'
         };
       }
-      
+
       let montant = Math.abs(parseFloat(c.montant));
       if (categoriesDepenses.includes(c.categorie) || categoriesEpargnes.includes(c.categorie)) {
         montant = -montant;
       }
-      
+
       return {
         id: Date.now() + i + 1000,
         ...c,
@@ -373,7 +368,7 @@ function AppContent() {
 
     try {
       const { generateReport } = await import('./utils/reportGenerator');
-  
+
       const reportHTML = generateReport({
         currentUser,
         comptes,
@@ -385,23 +380,17 @@ function AppContent() {
         categoriesRevenus,
         categoriesEpargnes
       });
-  
+
       const blob = new Blob([reportHTML], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
-    
+
       const newWindow = window.open(url, '_blank');
-    
+
       if (newWindow) {
-        setNotification({ 
-          type: 'success', 
-          message: '✅ Rapport ouvert !' 
-        });
+        setNotification({ type: 'success', message: '✅ Rapport ouvert !' });
         setTimeout(() => URL.revokeObjectURL(url), 30000);
       } else {
-        setNotification({ 
-          type: 'warning', 
-          message: '⚠️ Pop-up bloquée !' 
-        });
+        setNotification({ type: 'warning', message: '⚠️ Pop-up bloquée !' });
         URL.revokeObjectURL(url);
       }
     } catch (error) {
@@ -459,7 +448,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <Notification notification={notification} onClose={() => setNotification(null)} />
-      
+
       {transactionsAConfirmer.length > 0 && (
         <ConfirmationTransactionsModal
           transactions={transactionsAConfirmer}
@@ -481,7 +470,7 @@ function AppContent() {
           }}
         />
       )}
-      
+
       <Header onLogout={handleLogout} />
 
       <nav className="bg-white/60 backdrop-blur-xl border-b border-gray-200">
@@ -508,15 +497,19 @@ function AppContent() {
         </div>
       </nav>
 
+      {/* ✅ AJOUT : Bandeau notifications juste sous la nav */}
+      <BandeauNotifications
+        notifications={notifications}
+        onNavigate={handleSetActiveTab}
+      />
+
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {activeTab === 'dashboard' && <DashboardContainer />}
-        {activeTab === 'transactions' && <TransactionsContainer />}
-        {/* ✅ MODIFIÉ : on passe handleSetActiveTab à PrevisionnelContainer */}
-        {activeTab === 'previsionnel' && <PrevisionnelContainer setActiveTab={handleSetActiveTab} />}
-        {activeTab === 'epargnes' && <EpargnesContainer />}
-        {activeTab === 'dettes' && <DettesContainer />}
-        {/* ✅ MODIFIÉ : on passe defaultSection à ParametrageContainer */}
-        {activeTab === 'parametrage' && (
+        {activeTab === 'dashboard'      && <DashboardContainer />}
+        {activeTab === 'transactions'   && <TransactionsContainer />}
+        {activeTab === 'previsionnel'   && <PrevisionnelContainer setActiveTab={handleSetActiveTab} />}
+        {activeTab === 'epargnes'       && <EpargnesContainer />}
+        {activeTab === 'dettes'         && <DettesContainer />}
+        {activeTab === 'parametrage'    && (
           <ParametrageContainer
             defaultSection={parametrageSection}
             onExport={handleExport}
