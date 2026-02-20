@@ -3,18 +3,23 @@ import { Check, Trash2, ShieldCheck } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTransactions } from '../../hooks/useTransactions';
 
-export const TransactionItem = ({ transaction, onDelete, highlighted = false, onVerified }) => {
+export const TransactionItem = ({ transaction, onDelete, highlighted = false, onVerified, ref }) => {
   const { comptes, categoriesDepenses, categoriesRevenus, categoriesEpargnes } = useFinance();
   const { updateTransaction } = useTransactions();
   const [isEditing, setIsEditing] = useState(false);
-  // ✅ Suivi local : cette transaction a-t-elle été vérifiée dans cette session ?
   const [verified, setVerified] = useState(false);
 
   const handleUpdate = (field, value) => {
     updateTransaction(transaction.id, { [field]: value });
   };
 
+  // ✅ Valider : passe en realisee si à venir + marque comme vérifié visuellement
   const handleVerify = () => {
+    const isAVenirActuel =
+      transaction.statut === 'a_venir' || transaction.statut === 'avenir';
+    if (isAVenirActuel) {
+      updateTransaction(transaction.id, { statut: 'realisee' });
+    }
     setVerified(true);
     if (onVerified) onVerified(transaction.id);
   };
@@ -22,17 +27,16 @@ export const TransactionItem = ({ transaction, onDelete, highlighted = false, on
   const isAVenir  = transaction.statut === 'a_venir' || transaction.statut === 'avenir';
   const isRealisee = transaction.statut === 'realisee';
 
-  // ✅ Surbrillance : jaune/orange si highlighted et pas encore vérifié
   const rowClass = [
     'transition-colors',
-    isAVenir ? 'opacity-60' : '',
+    isAVenir && !highlighted ? 'opacity-60' : '',
     highlighted && !verified
       ? 'bg-amber-50 border-l-4 border-amber-400 hover:bg-amber-100'
       : 'hover:bg-blue-50/50'
   ].filter(Boolean).join(' ');
 
   return (
-    <tr className={rowClass} id={`transaction-${transaction.id}`}>
+    <tr className={rowClass} id={`transaction-${transaction.id}`} ref={ref}>
       <td className="px-6 py-4 text-sm font-medium">
         {isEditing ? (
           <input
@@ -62,7 +66,7 @@ export const TransactionItem = ({ transaction, onDelete, highlighted = false, on
               </span>
             )}
             {transaction.isFromChargeFixe && <span title="Issue d'une charge fixe">📌</span>}
-            {transaction.type === 'transfert' && <span title="Transfert entre comptes">🔄</span>}
+            {transaction.type === 'transfert'  && <span title="Transfert entre comptes">🔄</span>}
             {transaction.description}
           </div>
         )}
@@ -148,17 +152,16 @@ export const TransactionItem = ({ transaction, onDelete, highlighted = false, on
 
       <td className="px-6 py-4 text-center">
         <div className="flex items-center justify-center gap-2">
-          {/* ✅ Bouton Vérifier (surbrillance active uniquement) */}
+          {/* ✅ Bouton Vérifier — valide + passe en realisee si à venir */}
           {highlighted && !verified && (
             <button
               onClick={handleVerify}
               className="p-2 rounded-lg bg-amber-100 text-amber-600 hover:bg-amber-200 transition-all"
-              title="Marquer comme vérifié"
+              title={isAVenir ? 'Valider comme réalisée' : 'Marquer comme vérifié'}
             >
               <ShieldCheck size={18} />
             </button>
           )}
-          {/* Bouton édition */}
           <button
             onClick={() => setIsEditing(!isEditing)}
             className={`p-2 rounded-lg transition-all ${
@@ -170,7 +173,6 @@ export const TransactionItem = ({ transaction, onDelete, highlighted = false, on
           >
             {isEditing ? <Check size={18} /> : '✏️'}
           </button>
-          {/* Bouton suppression */}
           <button
             onClick={() => onDelete(transaction)}
             className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-all"

@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Filter, X, ShieldCheck } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
+import { useTransactions } from '../../hooks/useTransactions';
 import { TransactionItem } from './TransactionItem';
 
 export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
   const { transactions, categoriesDepenses, categoriesRevenus, categoriesEpargnes, comptes } = useFinance();
+  const { updateTransaction } = useTransactions();
 
   const [searchTerm, setSearchTerm]             = useState('');
   const [filterCategorie, setFilterCategorie]   = useState('all');
@@ -16,17 +18,11 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
   const [filterDateFin, setFilterDateFin]       = useState('');
   const [showFiltresAvances, setShowFiltresAvances] = useState(false);
 
-  // ✅ IDs des transactions du jour déjà vérifiées manuellement
   const [verifiedIds, setVerifiedIds] = useState(new Set());
-  // ✅ Ref vers la première ligne en surbrillance pour le scroll auto
   const firstHighlightedRef = useRef(null);
-  // ✅ Ref vers le bandeau "Tout valider"
-  const validationBandeauRef = useRef(null);
 
-  // Date du jour au format YYYY-MM-DD
   const dateAujourdhui = new Date().toISOString().split('T')[0];
 
-  // ✅ Si filtreDate reçu depuis le bandeau de notif → pré-remplir les dates
   useEffect(() => {
     if (filtreDate) {
       setFilterDateDebut(filtreDate);
@@ -35,7 +31,6 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
     }
   }, [filtreDate]);
 
-  // ✅ Scroll automatique vers la première transaction du jour en surbrillance
   useEffect(() => {
     if (filtreDate && firstHighlightedRef.current) {
       setTimeout(() => {
@@ -68,7 +63,7 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
   const transactionsFiltrees = transactions.filter(t => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      const dateStr  = t.date ? new Date(t.date).toLocaleDateString('fr-FR') : '';
+      const dateStr    = t.date ? new Date(t.date).toLocaleDateString('fr-FR') : '';
       const montantStr = t.montant !== undefined ? String(Math.abs(t.montant)) : '';
       const matchSearch =
         (t.description || '').toLowerCase().includes(term) ||
@@ -97,7 +92,7 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
     (a, b) => new Date(b.date) - new Date(a.date)
   );
 
-  // ✅ Transactions du jour syncées = à mettre en surbrillance
+  // Transactions du jour syncées → surbrillance
   const idsTransactionsDuJour = new Set(
     transactions
       .filter(t => t.isSynced && new Date(t.date).toISOString().split('T')[0] === dateAujourdhui)
@@ -110,8 +105,14 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
     setVerifiedIds(prev => new Set([...prev, id]));
   }, []);
 
-  // ✅ Tout valider d'un coup
+  // ✅ Tout valider : marque comme vérifiées ET passe les "à venir" en "realisee"
   const handleToutValider = () => {
+    idsTransactionsDuJour.forEach(id => {
+      const t = transactions.find(t => t.id === id);
+      if (t && (t.statut === 'a_venir' || t.statut === 'avenir')) {
+        updateTransaction(id, { statut: 'realisee' });
+      }
+    });
     setVerifiedIds(new Set([...verifiedIds, ...idsTransactionsDuJour]));
   };
 
@@ -123,12 +124,9 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
 
   return (
     <>
-      {/* ═══ BANDEAU "TOUT VALIDER" si transactions du jour visibles ═══ */}
+      {/* ═══ BANDEAU "TOUT VALIDER" ═══ */}
       {filtreDate && nbDuJourRestants > 0 && (
-        <div
-          ref={validationBandeauRef}
-          className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-center justify-between gap-4"
-        >
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🏦</span>
             <div>
@@ -136,7 +134,7 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
                 {nbDuJourRestants} transaction{nbDuJourRestants > 1 ? 's' : ''} du jour à vérifier
               </p>
               <p className="text-xs text-amber-700">
-                Vérifiez que chaque catégorie est correcte, puis cliquez sur 🛡️ pour valider
+                Vérifiez la catégorisation puis validez — les transactions "à venir" passeront automatiquement en "Réalisée"
               </p>
             </div>
           </div>
@@ -332,13 +330,10 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
               ) : (
                 transactionsTriees.map((transaction) => {
                   const isHighlighted = idsTransactionsDuJour.has(transaction.id);
-                  // ✅ Ref sur la première ligne en surbrillance pour le scroll auto
                   let refProp = {};
                   if (isHighlighted && !firstHighlightedSet) {
                     firstHighlightedSet = true;
-                    refProp = {
-                      ref: (el) => { firstHighlightedRef.current = el; }
-                    };
+                    refProp = { ref: (el) => { firstHighlightedRef.current = el; } };
                   }
                   return (
                     <TransactionItem
