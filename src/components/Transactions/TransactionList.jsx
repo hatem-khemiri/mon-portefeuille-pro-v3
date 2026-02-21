@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Filter, X, ShieldCheck } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
-import { useTransactions } from '../../hooks/useTransactions';
 import { TransactionItem } from './TransactionItem';
 
 export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
-  const { transactions, categoriesDepenses, categoriesRevenus, categoriesEpargnes, comptes } = useFinance();
-  const { updateTransaction } = useTransactions();
+  const { transactions, setTransactions, categoriesDepenses, categoriesRevenus, categoriesEpargnes, comptes } = useFinance();
 
   const [searchTerm, setSearchTerm]             = useState('');
   const [filterCategorie, setFilterCategorie]   = useState('all');
@@ -92,10 +90,14 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
     (a, b) => new Date(b.date) - new Date(a.date)
   );
 
-  // Transactions du jour syncées → surbrillance
+  // ✅ Transactions du jour syncées à mettre en surbrillance
   const idsTransactionsDuJour = new Set(
     transactions
-      .filter(t => t.isSynced && new Date(t.date).toISOString().split('T')[0] === dateAujourdhui)
+      .filter(t => {
+        if (!t.isSynced) return false;
+        const dateT = t.date?.slice(0, 10);
+        return dateT === dateAujourdhui;
+      })
       .map(t => t.id)
   );
 
@@ -105,14 +107,21 @@ export const TransactionList = ({ onDeleteTransaction, filtreDate = null }) => {
     setVerifiedIds(prev => new Set([...prev, id]));
   }, []);
 
-  // ✅ Tout valider : marque comme vérifiées ET passe les "à venir" en "realisee"
+  // ✅ CORRIGÉ : une seule opération setTransactions pour éviter l'écrasement en boucle
   const handleToutValider = () => {
-    idsTransactionsDuJour.forEach(id => {
+    const idsAValider = [...idsTransactionsDuJour].filter(id => {
       const t = transactions.find(t => t.id === id);
-      if (t && (t.statut === 'a_venir' || t.statut === 'avenir')) {
-        updateTransaction(id, { statut: 'realisee' });
-      }
+      return t && (t.statut === 'a_venir' || t.statut === 'avenir');
     });
+
+    if (idsAValider.length > 0) {
+      setTransactions(prev => prev.map(t =>
+        idsAValider.includes(t.id)
+          ? { ...t, statut: 'realisee' }
+          : t
+      ));
+    }
+
     setVerifiedIds(new Set([...verifiedIds, ...idsTransactionsDuJour]));
   };
 

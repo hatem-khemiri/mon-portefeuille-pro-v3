@@ -4,7 +4,7 @@ import { useFinance } from '../../contexts/FinanceContext';
 import { useTransactions } from '../../hooks/useTransactions';
 
 export const TransactionItem = ({ transaction, onDelete, highlighted = false, onVerified, ref }) => {
-  const { comptes, categoriesDepenses, categoriesRevenus, categoriesEpargnes } = useFinance();
+  const { comptes, categoriesDepenses, categoriesRevenus, categoriesEpargnes, setTransactions } = useFinance();
   const { updateTransaction } = useTransactions();
   const [isEditing, setIsEditing] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -13,12 +13,14 @@ export const TransactionItem = ({ transaction, onDelete, highlighted = false, on
     updateTransaction(transaction.id, { [field]: value });
   };
 
-  // ✅ Valider : passe en realisee si à venir + marque comme vérifié visuellement
+  // ✅ CORRIGÉ : setTransactions direct pour éviter l'écrasement
   const handleVerify = () => {
     const isAVenirActuel =
       transaction.statut === 'a_venir' || transaction.statut === 'avenir';
     if (isAVenirActuel) {
-      updateTransaction(transaction.id, { statut: 'realisee' });
+      setTransactions(prev => prev.map(t =>
+        t.id === transaction.id ? { ...t, statut: 'realisee' } : t
+      ));
     }
     setVerified(true);
     if (onVerified) onVerified(transaction.id);
@@ -66,7 +68,7 @@ export const TransactionItem = ({ transaction, onDelete, highlighted = false, on
               </span>
             )}
             {transaction.isFromChargeFixe && <span title="Issue d'une charge fixe">📌</span>}
-            {transaction.type === 'transfert'  && <span title="Transfert entre comptes">🔄</span>}
+            {transaction.type === 'transfert' && <span title="Transfert entre comptes">🔄</span>}
             {transaction.description}
           </div>
         )}
@@ -152,7 +154,6 @@ export const TransactionItem = ({ transaction, onDelete, highlighted = false, on
 
       <td className="px-6 py-4 text-center">
         <div className="flex items-center justify-center gap-2">
-          {/* ✅ Bouton Vérifier — valide + passe en realisee si à venir */}
           {highlighted && !verified && (
             <button
               onClick={handleVerify}
